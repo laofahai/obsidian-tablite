@@ -1,5 +1,4 @@
 import Papa from "papaparse";
-import type { Delimiter } from "./detect";
 
 export interface ParseResult {
   data: string[][];

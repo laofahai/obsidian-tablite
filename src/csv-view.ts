@@ -36,11 +36,11 @@ export class CsvView extends TextFileView {
     this.data = "";
   }
 
-  async onOpen(): Promise<void> {
+  onOpen(): void {
     this.rootEl = this.contentEl.createDiv({ cls: "tablite-root" });
   }
 
-  async onClose(): Promise<void> {
+  onClose(): void {
     if (this.rootEl) {
       render(null, this.rootEl);
     }

@@ -401,6 +401,10 @@
 
 /* ─── Context Menu ─── */
 .tablite-context-menu {
+  position: fixed;
+  left: var(--tablite-menu-left, 0);
+  top: var(--tablite-menu-top, 0);
+  z-index: 1000;
   background: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 6px;

@@ -145,19 +145,31 @@ export function Table({
       e.preventDefault();
       const menu = document.createElement("div");
       menu.className = "tablite-context-menu";
-      menu.innerHTML = `
-        <div class="tablite-menu-item" data-action="insert-row-above">Insert Row Above</div>
-        <div class="tablite-menu-item" data-action="insert-row-below">Insert Row Below</div>
-        <div class="tablite-menu-item" data-action="delete-row">Delete Row</div>
-        <hr/>
-        <div class="tablite-menu-item" data-action="insert-col-left">Insert Column Left</div>
-        <div class="tablite-menu-item" data-action="insert-col-right">Insert Column Right</div>
-        <div class="tablite-menu-item" data-action="delete-col">Delete Column</div>
-      `;
-      menu.style.position = "fixed";
-      menu.style.left = `${e.clientX}px`;
-      menu.style.top = `${e.clientY}px`;
-      menu.style.zIndex = "1000";
+
+      const items = [
+        { action: "insert-row-above", label: "Insert Row Above" },
+        { action: "insert-row-below", label: "Insert Row Below" },
+        { action: "delete-row", label: "Delete Row" },
+        { action: "separator", label: "" },
+        { action: "insert-col-left", label: "Insert Column Left" },
+        { action: "insert-col-right", label: "Insert Column Right" },
+        { action: "delete-col", label: "Delete Column" },
+      ];
+      for (const item of items) {
+        if (item.action === "separator") {
+          menu.appendChild(document.createElement("hr"));
+        } else {
+          const div = document.createElement("div");
+          div.className = "tablite-menu-item";
+          div.dataset.action = item.action;
+          div.textContent = item.label;
+          menu.appendChild(div);
+        }
+      }
+      menu.setCssProps({
+        "--tablite-menu-left": `${e.clientX}px`,
+        "--tablite-menu-top": `${e.clientY}px`,
+      });
 
       const handleClick = (ev: Event) => {
         const target = ev.target as HTMLElement;
@@ -280,7 +292,7 @@ export function Table({
                     }}
                     onContextMenu={(e) =>
                       onContextMenu(
-                        e as any,
+                        e.nativeEvent as MouseEvent,
                         virtualRow.index,
                         colIdx,
                       )
