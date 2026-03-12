@@ -22,12 +22,16 @@ jobs:
 
       - run: npm run build
 
-      - name: Create release with assets
+      - name: Package and release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           tag="${GITHUB_REF#refs/tags/}"
+          mkdir -p tablite
+          cp main.js styles.css manifest.json tablite/
+          zip -r tablite-${tag}.zip tablite/
           gh release create "$tag" \
-            --title "$tag" \
+            --title "Tablite ${tag}" \
             --generate-notes \
+            tablite-${tag}.zip \
             main.js styles.css manifest.json
