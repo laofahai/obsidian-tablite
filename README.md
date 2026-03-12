@@ -24,12 +24,6 @@ A fast, feature-rich CSV/TSV editor for [Obsidian](https://obsidian.md). Edit ta
 
 ## Installation
 
-### From Obsidian Community Plugins (coming soon)
-
-1. Open **Settings → Community Plugins → Browse**
-2. Search for **Tablite**
-3. Click **Install**, then **Enable**
-
 ### Manual Installation
 
 1. Download `main.js`, `styles.css`, and `manifest.json` from the [latest release](https://github.com/laofahai/obsidian-tablite/releases)

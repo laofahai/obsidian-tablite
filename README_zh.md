@@ -24,12 +24,6 @@
 
 ## 安装
 
-### 社区插件（即将上线）
-
-1. 打开 **设置 → 社区插件 → 浏览**
-2. 搜索 **Tablite**
-3. 点击 **安装**，然后 **启用**
-
 ### 手动安装
 
 1. 从 [最新发布](https://github.com/laofahai/obsidian-tablite/releases) 下载 `main.js`、`styles.css` 和 `manifest.json`
