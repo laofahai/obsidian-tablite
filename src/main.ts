@@ -1,3 +1,4 @@
+import "./styles.css";
 import { Plugin } from "obsidian";
 import { CsvView, CSV_VIEW_TYPE } from "./csv-view";
 
