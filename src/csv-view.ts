@@ -1,6 +1,5 @@
 import { TextFileView, WorkspaceLeaf } from "obsidian";
-import { render } from "preact";
-import { h } from "preact";
+import { render, h } from "preact";
 import { App } from "./components/App";
 
 export const CSV_VIEW_TYPE = "tablite-csv-view";
@@ -51,6 +50,7 @@ export class CsvView extends TextFileView {
     if (!this.rootEl) return;
     render(
       h(App, {
+        key: this.file?.path ?? "",
         initialData: this.data,
         filePath: this.file?.path ?? "",
         onDataChange: (newData: string) => {

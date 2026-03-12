@@ -18,22 +18,28 @@ export function App({ initialData, filePath, onDataChange }: AppProps) {
   });
   const [encoding, setEncoding] = useState("utf-8");
   const [searchQuery, setSearchQuery] = useState("");
+  const [crossHighlight, setCrossHighlight] = useState(true);
+  const [hasHeader, setHasHeader] = useState<boolean>(() => {
+    if (!initialData || initialData.trim().length === 0) return true;
+    const { hasHeader: detected } = parseCSV(initialData, delimiter);
+    return detected;
+  });
 
   // Parse initial data
   const initialState = useMemo<TableState>(() => {
     if (!initialData || initialData.trim().length === 0) {
       return { headers: ["Column 1"], data: [[""]] };
     }
-    const { headers, data } = parseCSV(initialData, delimiter);
+    const { headers, data } = parseCSV(initialData, delimiter, hasHeader);
     return { headers, data };
   }, []);
 
   const handleDataChange = useCallback(
     (headers: string[], data: string[][]) => {
-      const csv = serializeCSV(headers, data, delimiter);
+      const csv = serializeCSV(headers, data, delimiter, hasHeader);
       onDataChange(csv);
     },
-    [delimiter, onDataChange],
+    [delimiter, hasHeader, onDataChange],
   );
 
   const {
@@ -54,10 +60,20 @@ export function App({ initialData, filePath, onDataChange }: AppProps) {
   const handleDelimiterChange = useCallback(
     (newDelimiter: Delimiter) => {
       setDelimiter(newDelimiter);
-      const { headers: h, data: d } = parseCSV(initialData, newDelimiter);
+      const { headers: h, data: d } = parseCSV(initialData, newDelimiter, hasHeader);
       reset({ headers: h, data: d });
     },
-    [initialData, reset],
+    [initialData, hasHeader, reset],
+  );
+
+  // Re-parse when hasHeader toggled
+  const handleHasHeaderChange = useCallback(
+    (newHasHeader: boolean) => {
+      setHasHeader(newHasHeader);
+      const { headers: h, data: d } = parseCSV(initialData, delimiter, newHasHeader);
+      reset({ headers: h, data: d });
+    },
+    [initialData, delimiter, reset],
   );
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -71,10 +87,14 @@ export function App({ initialData, filePath, onDataChange }: AppProps) {
       <Toolbar
         encoding={encoding}
         delimiter={delimiter}
+        hasHeader={hasHeader}
+        crossHighlight={crossHighlight}
         rowCount={data.length}
         colCount={headers.length}
         onDelimiterChange={handleDelimiterChange}
         onEncodingChange={setEncoding}
+        onHasHeaderChange={handleHasHeaderChange}
+        onCrossHighlightChange={setCrossHighlight}
         onSearch={setSearchQuery}
         onUndo={undo}
         onRedo={redo}
@@ -82,6 +102,8 @@ export function App({ initialData, filePath, onDataChange }: AppProps) {
       <Table
         headers={headers}
         data={data}
+        searchQuery={searchQuery}
+        crossHighlight={crossHighlight}
         onUpdateCell={updateCell}
         onUpdateHeader={updateHeader}
         onInsertRow={insertRow}

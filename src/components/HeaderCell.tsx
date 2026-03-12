@@ -79,20 +79,34 @@ export function HeaderCell({
     );
   }
 
+  const filterValue = (column.getFilterValue() as string) ?? "";
+
   return (
     <div class="tablite-header-cell">
-      <span
-        class="tablite-header-name"
-        onClick={() => column.toggleSorting()}
-        onDblClick={() => {
-          setEditValue(name);
-          setEditing(true);
-          requestAnimationFrame(() => inputRef.current?.focus());
+      <div class="tablite-header-top">
+        <span
+          class="tablite-header-name"
+          onClick={() => column.toggleSorting()}
+          onDblClick={() => {
+            setEditValue(name);
+            setEditing(true);
+            requestAnimationFrame(() => inputRef.current?.focus());
+          }}
+        >
+          {name}{sortIndicator}
+        </span>
+        <div class="tablite-resize-handle" onMouseDown={onMouseDown} />
+      </div>
+      <input
+        class="tablite-column-filter"
+        type="text"
+        placeholder="Filter..."
+        value={filterValue}
+        onInput={(e) => {
+          column.setFilterValue((e.target as HTMLInputElement).value || undefined);
         }}
-      >
-        {name}{sortIndicator}
-      </span>
-      <div class="tablite-resize-handle" onMouseDown={onMouseDown} />
+        onClick={(e) => e.stopPropagation()}
+      />
     </div>
   );
 }

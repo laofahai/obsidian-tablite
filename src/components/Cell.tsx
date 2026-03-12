@@ -1,11 +1,11 @@
-import { useState, useRef, useCallback } from "preact/hooks";
+import { useState, useRef, useEffect } from "preact/hooks";
+import type { RefObject } from "preact";
 
 interface CellProps {
   value: string;
   rowIndex: number;
   colIndex: number;
-  isActive: boolean;
-  onActivate: (rowIndex: number, colIndex: number) => void;
+  searchQueryRef: RefObject<string>;
   onUpdate: (rowIndex: number, colIndex: number, value: string) => void;
 }
 
@@ -13,32 +13,25 @@ export function Cell({
   value,
   rowIndex,
   colIndex,
-  isActive,
-  onActivate,
+  searchQueryRef,
   onUpdate,
 }: CellProps) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const startEdit = useCallback(() => {
-    setEditValue(value);
-    setEditing(true);
-    onActivate(rowIndex, colIndex);
-    requestAnimationFrame(() => inputRef.current?.focus());
-  }, [value, rowIndex, colIndex, onActivate]);
+  // Sync value from parent when not editing
+  useEffect(() => {
+    if (!editing) setEditValue(value);
+  }, [value, editing]);
 
-  const commitEdit = useCallback(() => {
-    setEditing(false);
-    if (editValue !== value) {
-      onUpdate(rowIndex, colIndex, editValue);
+  // Auto-focus when entering edit mode
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
     }
-  }, [editValue, value, rowIndex, colIndex, onUpdate]);
-
-  const cancelEdit = useCallback(() => {
-    setEditing(false);
-    setEditValue(value);
-  }, [value]);
+  }, [editing]);
 
   if (editing) {
     return (
@@ -47,25 +40,36 @@ export function Cell({
         class="tablite-cell-input"
         value={editValue}
         onInput={(e) => setEditValue((e.target as HTMLInputElement).value)}
-        onBlur={commitEdit}
+        onBlur={() => {
+          setEditing(false);
+          if (editValue !== value) {
+            onUpdate(rowIndex, colIndex, editValue);
+          }
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
-            commitEdit();
+            (e.target as HTMLInputElement).blur();
           } else if (e.key === "Escape") {
             e.preventDefault();
-            cancelEdit();
+            setEditValue(value);
+            setEditing(false);
           }
         }}
       />
     );
   }
 
+  const sq = searchQueryRef.current ?? "";
+  const isMatch = sq.length > 0 && value.toLowerCase().includes(sq.toLowerCase());
+
   return (
     <div
-      class={`tablite-cell ${isActive ? "tablite-cell-active" : ""}`}
-      onDblClick={startEdit}
-      onClick={() => onActivate(rowIndex, colIndex)}
+      class={`tablite-cell ${isMatch ? "tablite-cell-match" : ""}`}
+      onDblClick={() => {
+        setEditValue(value);
+        setEditing(true);
+      }}
     >
       {value || "\u00A0"}
     </div>
