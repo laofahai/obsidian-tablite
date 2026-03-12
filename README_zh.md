@@ -4,7 +4,7 @@
 
 [English](README.md)
 
-![Tablite 截图](assets/screenshot.png)
+![Tablite 截图](assets/screenshot.jpg)
 
 ## 功能
 

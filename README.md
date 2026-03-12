@@ -4,7 +4,7 @@ A fast, feature-rich CSV/TSV editor for [Obsidian](https://obsidian.md). Edit ta
 
 [中文文档](README_zh.md)
 
-![Tablite Screenshot](assets/screenshot.png)
+![Tablite Screenshot](assets/screenshot.jpg)
 
 ## Features
 
