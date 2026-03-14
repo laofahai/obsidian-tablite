@@ -132,6 +132,20 @@
   color: var(--text-faint);
 }
 
+.tablite-search-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tablite-search-count {
+  min-width: 34px;
+  font-size: 10px;
+  color: var(--text-faint);
+  text-align: center;
+}
+
 .tablite-toggle-label {
   display: inline-flex !important;
   align-items: center;
@@ -192,6 +206,76 @@
   line-height: 1;
 }
 
+.tablite-columns-panel {
+  position: relative;
+}
+
+.tablite-columns-panel > summary {
+  list-style: none;
+  user-select: none;
+}
+
+.tablite-columns-panel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.tablite-columns-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 180px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-primary);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  z-index: 20;
+}
+
+.tablite-column-option {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  height: auto !important;
+  padding: 4px 2px;
+  font-size: 11px;
+  color: var(--text-normal);
+}
+
+.tablite-column-option input {
+  margin: 0;
+}
+
+.tablite-menu-button {
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 4px 6px !important;
+  border: none !important;
+  border-radius: 4px;
+  background: var(--background-secondary) !important;
+  color: var(--text-normal);
+  font-size: 11px;
+  text-align: left;
+}
+
+.tablite-menu-button:hover {
+  background: var(--background-modifier-hover) !important;
+}
+
+.tablite-freeze-control {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.tablite-freeze-label {
+  line-height: 1;
+}
+
 /* ─── Table ─── */
 .tablite-table-container {
   flex: 1;
@@ -246,6 +330,11 @@
   border-right: 1px solid var(--background-modifier-border);
   padding: 0;
   font-size: 13px;
+  background: var(--background-primary);
+}
+
+.tablite-frozen-cell {
+  box-shadow: 1px 0 0 var(--background-modifier-border);
 }
 
 /* ─── Selection & Cross Highlight ─── */
@@ -331,9 +420,10 @@
 .tablite-header-top {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  gap: 6px;
   width: 100%;
-  padding: 6px 6px;
+  padding: 6px 10px 6px 6px;
   position: relative;
 }
 
@@ -343,7 +433,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  text-align: center;
+  text-align: left;
+}
+
+.tablite-header-type {
+  flex-shrink: 0;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
 }
 
 .tablite-header-input {
@@ -387,6 +485,31 @@
   box-sizing: border-box;
   box-shadow: none !important;
   text-align: center;
+}
+
+.tablite-column-filter-select {
+  cursor: pointer;
+  appearance: none;
+}
+
+.tablite-range-filter {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  padding: 0 2px 2px;
+  box-sizing: border-box;
+}
+
+.tablite-range-input {
+  min-width: 0;
+  text-align: left;
+}
+
+.tablite-range-sep {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--text-faint);
 }
 
 .tablite-column-filter:focus {

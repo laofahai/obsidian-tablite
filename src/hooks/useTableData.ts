@@ -93,7 +93,10 @@ export function useTableData(
     (index: number) => {
       pushHistory();
       setData((prev) => {
-        const next = prev.filter((_, i) => i !== index);
+        const filtered = prev.filter((_, i) => i !== index);
+        const next = filtered.length > 0
+          ? filtered
+          : [new Array(Math.max(1, headers.length)).fill("")];
         setHeaders((hh) => {
           notify(hh, next);
           return hh;
@@ -101,7 +104,7 @@ export function useTableData(
         return next;
       });
     },
-    [pushHistory, notify],
+    [pushHistory, headers.length, notify],
   );
 
   const insertColumn = useCallback(
@@ -129,13 +132,17 @@ export function useTableData(
     (index: number) => {
       pushHistory();
       setHeaders((prev) => {
-        const next = prev.filter((_, i) => i !== index);
+        const filteredHeaders = prev.filter((_, i) => i !== index);
+        const nextHeaders = filteredHeaders.length > 0 ? filteredHeaders : ["Column 1"];
         setData((dd) => {
-          const nextData = dd.map((row) => row.filter((_, i) => i !== index));
-          notify(next, nextData);
+          const filteredData = dd.map((row) => row.filter((_, i) => i !== index));
+          const nextData = filteredHeaders.length > 0
+            ? filteredData
+            : filteredData.map(() => [""]);
+          notify(nextHeaders, nextData);
           return nextData;
         });
-        return next;
+        return nextHeaders;
       });
     },
     [pushHistory, notify],
