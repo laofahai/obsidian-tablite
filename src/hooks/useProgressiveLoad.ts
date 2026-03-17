@@ -61,7 +61,7 @@ export function useProgressiveLoad(totalRows: number): ProgressiveLoadState {
       setVisibleCount((prev) => Math.min(prev + CHUNK_SIZE, totalRows));
     });
 
-    return () => cancel(id as number);
+    return () => cancel(id);
   }, [visibleCount, totalRows]);
 
   const loading = visibleCount < totalRows;
