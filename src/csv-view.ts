@@ -1,19 +1,39 @@
-import { TextFileView, WorkspaceLeaf } from "obsidian";
+import { TextFileView, WorkspaceLeaf, type TFile } from "obsidian";
 import { render, h } from "preact";
 import { App } from "./components/App";
 import TablitePlugin from "./main";
 import { parseCSV } from "./parser/csv-engine";
-import { detectDelimiter } from "./parser/detect";
+import { detect, detectDelimiter } from "./parser/detect";
 
 export const CSV_VIEW_TYPE = "tablite-csv-view";
 
 export class CsvView extends TextFileView {
   private rootEl: HTMLDivElement | null = null;
   private plugin: TablitePlugin;
+  private detectedEncoding = "utf-8";
 
   constructor(leaf: WorkspaceLeaf, plugin: TablitePlugin) {
     super(leaf);
     this.plugin = plugin;
+  }
+
+  async onLoadFile(file: TFile): Promise<void> {
+    try {
+      const buffer = await this.app.vault.readBinary(file);
+      const { encoding } = detect(buffer);
+      this.detectedEncoding = encoding;
+      if (encoding !== "utf-8") {
+        const decoder = new TextDecoder(encoding);
+        this.data = decoder.decode(buffer);
+      } else {
+        this.data = await this.app.vault.read(file);
+      }
+    } catch (e) {
+      console.error("tablite: encoding detection failed, falling back to UTF-8", e);
+      this.data = await this.app.vault.read(file);
+      this.detectedEncoding = "utf-8";
+    }
+    this.setViewData(this.data, true);
   }
 
   getViewType(): string {
@@ -63,6 +83,7 @@ export class CsvView extends TextFileView {
       h(App, {
         key: filePath,
         initialData: this.data,
+        initialEncoding: this.detectedEncoding,
         filePath,
         initialColumnConfig: this.plugin.getFileColumnConfig(filePath, columnCount),
         onColumnConfigChange: async (config, nextColumnCount) => {

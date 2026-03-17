@@ -13,6 +13,7 @@ import {
 
 interface AppProps {
   initialData: string;
+  initialEncoding?: string;
   filePath: string;
   initialColumnConfig: ColumnConfig;
   onColumnConfigChange: (config: ColumnConfig, columnCount: number) => void | Promise<void>;
@@ -46,6 +47,7 @@ function ensureEditableState(state: TableState): TableState {
 
 export function App({
   initialData,
+  initialEncoding,
   filePath,
   initialColumnConfig,
   onColumnConfigChange,
@@ -55,7 +57,7 @@ export function App({
     if (!initialData || initialData.trim().length === 0) return ",";
     return detectDelimiter(initialData);
   });
-  const [encoding, setEncoding] = useState("utf-8");
+  const [encoding, setEncoding] = useState(initialEncoding ?? "utf-8");
   const [searchQuery, setSearchQuery] = useState("");
   const [crossHighlight, setCrossHighlight] = useState(true);
   const [activeCell, setActiveCell] = useState<ActiveCell | null>(null);

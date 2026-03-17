@@ -86,10 +86,10 @@ const textFilter: FilterFn<string[]> = (row, columnId, filterValue) => {
 };
 
 const selectFilter: FilterFn<string[]> = (row, columnId, filterValue) => {
-  const selected = String(filterValue ?? "").trim();
-  if (!selected) return true;
+  const selected = filterValue as string[] | undefined;
+  if (!selected || selected.length === 0) return true;
   const value = String(row.getValue(columnId) ?? "").trim();
-  return value === selected;
+  return selected.includes(value);
 };
 
 const numberRangeFilter: FilterFn<string[]> = (row, columnId, filterValue) => {

@@ -492,6 +492,7 @@
   appearance: none;
 }
 
+/* ─── Range Filter ─── */
 .tablite-range-filter {
   display: flex;
   align-items: center;
@@ -504,6 +505,88 @@
 .tablite-range-input {
   min-width: 0;
   text-align: left;
+  flex: 1;
+}
+
+/* ─── Date Picker ─── */
+.tablite-date-pick {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.tablite-date-display {
+  cursor: pointer;
+  font-size: 9px !important;
+}
+
+.tablite-date-picker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  padding: 0 !important;
+  border: none !important;
+}
+
+/* ─── Multi-select Filter ─── */
+.tablite-multiselect {
+  position: relative;
+  width: 100%;
+  padding: 0 2px 2px;
+  box-sizing: border-box;
+}
+
+.tablite-multiselect-trigger {
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tablite-multiselect-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 100;
+  min-width: 100%;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 2px 0;
+}
+
+.tablite-multiselect-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--text-normal);
+}
+
+.tablite-multiselect-item:hover {
+  background: var(--background-modifier-hover);
+}
+
+.tablite-multiselect-item input[type="checkbox"] {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.tablite-multiselect-clear {
+  color: var(--text-faint);
+  border-bottom: 1px solid var(--background-modifier-border);
+  font-size: 10px !important;
 }
 
 .tablite-range-sep {

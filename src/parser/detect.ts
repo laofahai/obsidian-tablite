@@ -10,7 +10,11 @@ export type Delimiter = (typeof DELIMITERS)[number];
 
 export function detectEncoding(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
-  const result = jschardet.detect(Buffer.from(bytes));
+  let binaryStr = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binaryStr += String.fromCharCode(bytes[i]);
+  }
+  const result = jschardet.detect(binaryStr);
   const enc = (result.encoding || "utf-8").toLowerCase();
   if (enc.includes("utf-8") || enc === "ascii") return "utf-8";
   if (enc.includes("gb") || enc.includes("gb2312") || enc.includes("gbk"))
