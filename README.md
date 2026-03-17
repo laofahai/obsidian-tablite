@@ -4,20 +4,27 @@ A fast, feature-rich CSV/TSV editor for [Obsidian](https://obsidian.md). Edit ta
 
 [中文文档](README_zh.md)
 
-![Tablite Screenshot](assets/screenshot.jpg)
+![Tablite Screenshot](assets/screenshot.png)
 
 ## Features
 
 - **Virtual scrolling** — handles 10k+ rows smoothly
 - **Inline editing** — double-click any cell to edit
 - **Cell selection & cross highlight** — single-click to select, with row/column cross highlight (toggleable)
-- **Column sorting** — click header to sort ascending/descending
-- **Column filtering** — per-column text filter below each header
-- **Global search** — search across all cells with highlight
+- **Column type detection** — auto-detects STRING, NUMBER, DATE types per column
+- **Column sorting** — click header to sort (multi-column supported)
+- **Smart column filtering**
+  - Text columns: free-text filter
+  - Enum columns (< 12 unique values): multi-select dropdown with checkboxes
+  - Number columns: min/max range filter
+  - Date columns: date range picker
+- **Global search** — search across all cells with highlight and navigation
 - **Auto delimiter detection** — comma, semicolon, tab, pipe
 - **Auto encoding detection** — UTF-8, GBK, Windows-1252, Shift-JIS
 - **Header detection** — auto-detects whether first row is a header, with manual toggle
+- **Column management** — hide/show, reorder via drag & drop, freeze columns
 - **Column resizing** — drag column borders to resize
+- **Persistent column config** — column widths, order, visibility, and freeze state are saved per file
 - **Context menu** — right-click to insert/delete rows and columns
 - **Undo/Redo** — full edit history (up to 50 steps)
 - **Obsidian-native styling** — respects your theme colors and dark/light mode
@@ -38,13 +45,16 @@ Open any `.csv` or `.tsv` file in your vault — Tablite automatically opens it 
 |---|---|
 | Edit a cell | Double-click |
 | Select a cell | Single-click |
-| Sort column | Click header name |
+| Sort column | Click header name (multi-sort with Shift+click) |
 | Rename header | Double-click header name |
-| Filter column | Type in the filter input below header |
+| Filter column | Use the filter input below header (type varies by column) |
 | Resize column | Drag the right edge of header |
+| Reorder columns | Drag & drop column headers |
+| Hide/show columns | Use the Columns panel in toolbar |
+| Freeze columns | Set freeze count in toolbar |
 | Insert/delete row or column | Right-click → context menu |
 | Undo / Redo | `Ctrl/Cmd+Z` / `Ctrl/Cmd+Shift+Z` |
-| Search | Search box (top-right) |
+| Search | `Ctrl/Cmd+F` or search box in toolbar |
 
 ## Tech Stack
 
