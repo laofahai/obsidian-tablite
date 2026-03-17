@@ -8,12 +8,19 @@ export interface DetectResult {
 const DELIMITERS = [",", ";", "\t", "|"] as const;
 export type Delimiter = (typeof DELIMITERS)[number];
 
+/** Max bytes to sample for encoding detection — 4KB is more than enough */
+const ENCODING_SAMPLE_SIZE = 4096;
+
 export function detectEncoding(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
-  let binaryStr = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binaryStr += String.fromCharCode(bytes[i]);
+  // Only sample the first few KB — charset detection doesn't need the whole file
+  const sampleLen = Math.min(bytes.length, ENCODING_SAMPLE_SIZE);
+  const codes = new Array<string>(sampleLen);
+  for (let i = 0; i < sampleLen; i++) {
+    codes[i] = String.fromCharCode(bytes[i]);
   }
+  const binaryStr = codes.join("");
+
   const result = jschardet.detect(binaryStr);
   const enc = (result.encoding || "utf-8").toLowerCase();
   if (enc.includes("utf-8") || enc === "ascii") return "utf-8";
@@ -27,7 +34,14 @@ export function detectEncoding(buffer: ArrayBuffer): string {
 }
 
 export function detectDelimiter(text: string): Delimiter {
-  const lines = text.split("\n").slice(0, 10);
+  // Find the end of the 10th line without splitting the entire string
+  let pos = 0;
+  for (let n = 0; n < 10 && pos < text.length; n++) {
+    const next = text.indexOf("\n", pos);
+    if (next === -1) { pos = text.length; break; }
+    pos = next + 1;
+  }
+  const lines = text.substring(0, pos).split("\n");
 
   let best: Delimiter = ",";
   let bestScore = 0;

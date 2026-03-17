@@ -3,7 +3,7 @@ import { render, h } from "preact";
 import { App } from "./components/App";
 import TablitePlugin from "./main";
 import { parseCSV } from "./parser/csv-engine";
-import { detect, detectDelimiter } from "./parser/detect";
+import { detectEncoding, detectDelimiter } from "./parser/detect";
 
 export const CSV_VIEW_TYPE = "tablite-csv-view";
 
@@ -20,7 +20,7 @@ export class CsvView extends TextFileView {
   async onLoadFile(file: TFile): Promise<void> {
     try {
       const buffer = await this.app.vault.readBinary(file);
-      const { encoding } = detect(buffer);
+      const encoding = detectEncoding(buffer);
       this.detectedEncoding = encoding;
       if (encoding !== "utf-8") {
         const decoder = new TextDecoder(encoding);
@@ -74,6 +74,8 @@ export class CsvView extends TextFileView {
   private renderApp(): void {
     if (!this.rootEl) return;
     const initialText = this.data ?? "";
+
+    // Parse once here — App reuses this result instead of re-parsing
     const delimiter = initialText.trim().length > 0 ? detectDelimiter(initialText) : ",";
     const parsed = parseCSV(initialText, delimiter);
     const columnCount = parsed.headers.length > 0 ? parsed.headers.length : 1;
@@ -82,7 +84,9 @@ export class CsvView extends TextFileView {
     render(
       h(App, {
         key: filePath,
-        initialData: this.data,
+        initialData: initialText,
+        initialParsed: parsed,
+        initialDelimiter: delimiter,
         initialEncoding: this.detectedEncoding,
         filePath,
         initialColumnConfig: this.plugin.getFileColumnConfig(filePath, columnCount),

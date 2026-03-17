@@ -8,7 +8,7 @@ A fast, feature-rich CSV/TSV editor for [Obsidian](https://obsidian.md). Edit ta
 
 ## Features
 
-- **Virtual scrolling** — handles 10k+ rows smoothly
+- **Virtual scrolling & progressive loading** — handles large files smoothly with chunked rendering
 - **Inline editing** — double-click any cell to edit
 - **Cell selection & cross highlight** — single-click to select, with row/column cross highlight (toggleable)
 - **Column type detection** — auto-detects STRING, NUMBER, DATE types per column
@@ -20,6 +20,7 @@ A fast, feature-rich CSV/TSV editor for [Obsidian](https://obsidian.md). Edit ta
   - Date columns: date range picker
 - **Global search** — search across all cells with highlight and navigation
 - **Auto delimiter detection** — comma, semicolon, tab, pipe
+- **Excel export compatibility** — auto-trims trailing empty columns from bloated spreadsheet exports
 - **Auto encoding detection** — UTF-8, GBK, Windows-1252, Shift-JIS
 - **Header detection** — auto-detects whether first row is a header, with manual toggle
 - **Column management** — hide/show, reorder via drag & drop, freeze columns

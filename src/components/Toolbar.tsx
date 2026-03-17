@@ -17,6 +17,8 @@ interface ToolbarProps {
   searchMatchIndex: number;
   searchMatchCount: number;
   searchInputRef: RefObject<HTMLInputElement>;
+  loading?: boolean;
+  loadProgress?: number;
   onDelimiterChange: (delimiter: Delimiter) => void;
   onEncodingChange: (encoding: string) => void;
   onHasHeaderChange: (value: boolean) => void;
@@ -53,6 +55,8 @@ export function Toolbar({
   searchMatchIndex,
   searchMatchCount,
   searchInputRef,
+  loading,
+  loadProgress,
   onDelimiterChange,
   onEncodingChange,
   onHasHeaderChange,
@@ -239,6 +243,11 @@ export function Toolbar({
       <div class="tablite-toolbar-right">
         <span class="tablite-info">
           {rowCount} x {colCount}
+          {loading && (
+            <span class="tablite-loading-badge" title={`Loading ${Math.round((loadProgress ?? 0) * 100)}%`}>
+              {" "}({Math.round((loadProgress ?? 0) * 100)}%)
+            </span>
+          )}
         </span>
         <div class="tablite-search-group">
           <input

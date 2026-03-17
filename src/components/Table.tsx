@@ -47,8 +47,17 @@ interface RangeFilterValue {
   max?: string;
 }
 
-function inferColumnType(values: string[]): "number" | "date" | "string" {
-  const nonEmpty = values.map((value) => value.trim()).filter(Boolean);
+/** Max rows to sample for column type / filter variant inference */
+const TYPE_SAMPLE_SIZE = 100;
+
+/** Infer column type by sampling first N rows directly — avoids extracting the full column array */
+function inferColumnType(data: string[][], colIndex: number): "number" | "date" | "string" {
+  const sampleSize = Math.min(data.length, TYPE_SAMPLE_SIZE);
+  const nonEmpty: string[] = [];
+  for (let i = 0; i < sampleSize; i++) {
+    const v = (data[i]?.[colIndex] ?? "").trim();
+    if (v) nonEmpty.push(v);
+  }
   if (nonEmpty.length === 0) return "string";
 
   const numberCount = nonEmpty.filter((value) => !Number.isNaN(Number(value))).length;
@@ -60,13 +69,17 @@ function inferColumnType(values: string[]): "number" | "date" | "string" {
   return "string";
 }
 
-function getFilterVariant(values: string[], dataType: "number" | "date" | "string"): "text" | "select" | "numberRange" | "dateRange" {
+/** Determine filter UI variant by sampling first N rows directly */
+function getFilterVariant(data: string[][], colIndex: number, dataType: "number" | "date" | "string"): "text" | "select" | "numberRange" | "dateRange" {
   if (dataType === "number") return "numberRange";
   if (dataType === "date") return "dateRange";
 
-  const normalized = values
-    .map((value) => value.trim())
-    .filter((value) => value.length > 0);
+  const sampleSize = Math.min(data.length, TYPE_SAMPLE_SIZE);
+  const normalized: string[] = [];
+  for (let i = 0; i < sampleSize; i++) {
+    const v = (data[i]?.[colIndex] ?? "").trim();
+    if (v.length > 0) normalized.push(v);
+  }
 
   if (normalized.length === 0) return "text";
 
@@ -171,17 +184,14 @@ export function Table({
   );
 
   const columnTypes = useMemo(
-    () => Object.fromEntries(headers.map((_, index) => [index, inferColumnType(data.map((row) => row[index] ?? ""))])),
+    () => Object.fromEntries(headers.map((_, index) => [index, inferColumnType(data, index)])),
     [data, headers],
   );
 
   const columnFilterVariants = useMemo(
     () =>
       Object.fromEntries(
-        headers.map((_, index) => {
-          const values = data.map((row) => row[index] ?? "");
-          return [index, getFilterVariant(values, columnTypes[index])];
-        }),
+        headers.map((_, index) => [index, getFilterVariant(data, index, columnTypes[index])]),
       ),
     [columnTypes, data, headers],
   );
@@ -307,7 +317,7 @@ export function Table({
 
   useEffect(() => {
     if (!activeCell) return;
-    rowVirtualizer.scrollToIndex(activeCell.row, { align: "center" });
+    rowVirtualizer.scrollToIndex(activeCell.row, { align: "auto" });
 
     const frame = window.requestAnimationFrame(() => {
       const container = tableContainerRef.current;

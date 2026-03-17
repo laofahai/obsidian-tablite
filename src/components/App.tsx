@@ -1,7 +1,8 @@
 import { useMemo, useCallback, useRef, useState, useEffect } from "preact/hooks";
-import { detectDelimiter, type Delimiter } from "../parser/detect";
-import { parseCSV, serializeCSV } from "../parser/csv-engine";
+import { type Delimiter } from "../parser/detect";
+import { parseCSV, serializeCSV, type ParseResult } from "../parser/csv-engine";
 import { useTableData, type TableState } from "../hooks/useTableData";
+import { useProgressiveLoad } from "../hooks/useProgressiveLoad";
 import { Toolbar } from "./Toolbar";
 import { Table } from "./Table";
 import {
@@ -13,6 +14,8 @@ import {
 
 interface AppProps {
   initialData: string;
+  initialParsed: ParseResult;
+  initialDelimiter: Delimiter;
   initialEncoding?: string;
   filePath: string;
   initialColumnConfig: ColumnConfig;
@@ -47,33 +50,26 @@ function ensureEditableState(state: TableState): TableState {
 
 export function App({
   initialData,
+  initialParsed,
+  initialDelimiter,
   initialEncoding,
   filePath,
   initialColumnConfig,
   onColumnConfigChange,
   onDataChange,
 }: AppProps) {
-  const [delimiter, setDelimiter] = useState<Delimiter>(() => {
-    if (!initialData || initialData.trim().length === 0) return ",";
-    return detectDelimiter(initialData);
-  });
+  // Use pre-parsed result from csv-view — no redundant re-parsing
+  const [delimiter, setDelimiter] = useState<Delimiter>(initialDelimiter);
   const [encoding, setEncoding] = useState(initialEncoding ?? "utf-8");
   const [searchQuery, setSearchQuery] = useState("");
   const [crossHighlight, setCrossHighlight] = useState(true);
   const [activeCell, setActiveCell] = useState<ActiveCell | null>(null);
-  const [hasHeader, setHasHeader] = useState<boolean>(() => {
-    if (!initialData || initialData.trim().length === 0) return true;
-    const { hasHeader: detected } = parseCSV(initialData, delimiter);
-    return detected;
-  });
+  const [hasHeader, setHasHeader] = useState<boolean>(initialParsed.hasHeader);
 
-  const initialState = useMemo<TableState>(() => {
-    if (!initialData || initialData.trim().length === 0) {
-      return { headers: ["Column 1"], data: [[""]] };
-    }
-    const { headers, data } = parseCSV(initialData, delimiter, hasHeader);
-    return ensureEditableState({ headers, data });
-  }, []);
+  const initialState = useMemo<TableState>(
+    () => ensureEditableState({ headers: initialParsed.headers, data: initialParsed.data }),
+    [],
+  );
 
   const {
     headers,
@@ -94,6 +90,13 @@ export function App({
     },
     [delimiter, hasHeader, onDataChange],
   ));
+
+  // Progressive loading: feed rows to Table in chunks
+  const { visibleCount, loading, progress } = useProgressiveLoad(data.length);
+  const visibleData = useMemo(
+    () => (visibleCount >= data.length ? data : data.slice(0, visibleCount)),
+    [data, visibleCount],
+  );
 
   const [columnConfig, setColumnConfig] = useState<ColumnConfig>(() =>
     normalizeColumnConfig(initialColumnConfig, initialState.headers.length),
@@ -117,6 +120,7 @@ export function App({
     [columnConfig.hidden, columnConfig.order],
   );
 
+  // Search always uses full data, not just the progressively-loaded portion
   const searchMatches = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return [] as ActiveCell[];
@@ -333,6 +337,8 @@ export function App({
         searchMatchIndex={activeMatchIndex >= 0 ? activeMatchIndex + 1 : 0}
         searchMatchCount={searchMatches.length}
         searchInputRef={searchInputRef}
+        loading={loading}
+        loadProgress={progress}
         onDelimiterChange={handleDelimiterChange}
         onEncodingChange={setEncoding}
         onHasHeaderChange={handleHasHeaderChange}
@@ -348,7 +354,7 @@ export function App({
       />
       <Table
         headers={headers}
-        data={data}
+        data={visibleData}
         searchQuery={searchQuery}
         crossHighlight={crossHighlight}
         activeCell={activeCell}

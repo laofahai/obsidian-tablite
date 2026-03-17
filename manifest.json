@@ -1,7 +1,7 @@
 {
   "id": "tablite",
   "name": "Tablite",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "minAppVersion": "1.5.0",
   "description": "A fast CSV/TSV editor with virtual scrolling, inline editing, column filtering, and auto encoding detection.",
   "author": "laofahai",
