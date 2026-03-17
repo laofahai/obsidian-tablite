@@ -88,8 +88,8 @@ export default class TablitePlugin extends Plugin {
     this.addCommand({
       id: "create-new-csv",
       name: "Create new CSV file",
-      callback: async () => {
-        await this.createAndOpenCsv();
+      callback: () => {
+        this.createAndOpenCsv();
       },
     });
 
@@ -123,8 +123,8 @@ export default class TablitePlugin extends Plugin {
           item
             .setTitle("New CSV")
             .setIcon("spreadsheet")
-            .onClick(async () => {
-              await this.createAndOpenCsv(targetFolder);
+            .onClick(() => {
+              this.createAndOpenCsv(targetFolder);
             }),
         );
       }),
@@ -149,7 +149,7 @@ export default class TablitePlugin extends Plugin {
       ...(loaded ?? {}),
       files: {
         ...DEFAULT_PLUGIN_DATA.files,
-        ...((loaded?.files as Record<string, ColumnConfig> | undefined) ?? {}),
+        ...(loaded?.files ?? {}),
       },
     };
   }

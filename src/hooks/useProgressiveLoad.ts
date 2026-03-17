@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "preact/hooks";
+import { useState, useEffect, useRef } from "preact/hooks";
 
 /** Rows loaded per idle frame */
 const CHUNK_SIZE = 2000;
