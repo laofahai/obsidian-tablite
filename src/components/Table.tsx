@@ -330,19 +330,28 @@ export function Table({
       event.preventDefault();
       const menu = document.createElement("div");
       menu.className = "tablite-context-menu";
-      menu.innerHTML = `
-        <div class="tablite-menu-item" data-action="insert-row-above">Insert Row Above</div>
-        <div class="tablite-menu-item" data-action="insert-row-below">Insert Row Below</div>
-        <div class="tablite-menu-item" data-action="delete-row">Delete Row</div>
-        <hr/>
-        <div class="tablite-menu-item" data-action="insert-col-left">Insert Column Left</div>
-        <div class="tablite-menu-item" data-action="insert-col-right">Insert Column Right</div>
-        <div class="tablite-menu-item" data-action="delete-col">Delete Column</div>
-      `;
-      menu.style.position = "fixed";
-      menu.style.left = `${event.clientX}px`;
-      menu.style.top = `${event.clientY}px`;
-      menu.style.zIndex = "1000";
+      const menuItems: Array<{ action: string; label: string } | "hr"> = [
+        { action: "insert-row-above", label: "Insert Row Above" },
+        { action: "insert-row-below", label: "Insert Row Below" },
+        { action: "delete-row", label: "Delete Row" },
+        "hr",
+        { action: "insert-col-left", label: "Insert Column Left" },
+        { action: "insert-col-right", label: "Insert Column Right" },
+        { action: "delete-col", label: "Delete Column" },
+      ];
+      for (const item of menuItems) {
+        if (item === "hr") {
+          menu.appendChild(document.createElement("hr"));
+        } else {
+          const div = document.createElement("div");
+          div.className = "tablite-menu-item";
+          div.dataset.action = item.action;
+          div.textContent = item.label;
+          menu.appendChild(div);
+        }
+      }
+      menu.style.setProperty("--tablite-menu-left", `${event.clientX}px`);
+      menu.style.setProperty("--tablite-menu-top", `${event.clientY}px`);
 
       const handleClick = (ev: Event) => {
         const target = ev.target as HTMLElement;

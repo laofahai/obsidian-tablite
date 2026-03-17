@@ -56,16 +56,16 @@ class NewCsvModal extends Modal {
     };
 
     cancelBtn.addEventListener("click", () => this.close());
-    createBtn.addEventListener("click", async () => {
-      await submit();
+    createBtn.addEventListener("click", () => {
+      void submit();
     });
 
     const resolvedInputEl = contentEl.querySelector("input");
     if (resolvedInputEl) {
-      resolvedInputEl.addEventListener("keydown", async (event: KeyboardEvent) => {
+      resolvedInputEl.addEventListener("keydown", (event: KeyboardEvent) => {
         if (event.key !== "Enter") return;
         event.preventDefault();
-        await submit();
+        void submit();
       });
 
       window.setTimeout(() => {
@@ -131,7 +131,7 @@ export default class TablitePlugin extends Plugin {
     );
   }
 
-  async onunload() {}
+  onunload() {}
 
   getFileColumnConfig(filePath: string, columnCount: number): ColumnConfig {
     return normalizeColumnConfig(this.settings.files[filePath], columnCount);
@@ -178,7 +178,7 @@ export default class TablitePlugin extends Plugin {
     return activeFile?.parent ?? this.app.vault.getRoot();
   }
 
-  private async createAndOpenCsv(targetFolder?: TFolder | null): Promise<void> {
+  private createAndOpenCsv(targetFolder?: TFolder | null): void {
     const folder = targetFolder ?? this.resolveTargetFolder(null);
     const folderPath = folder?.path === "/" ? "" : (folder?.path ?? "");
     const defaultName = this.getAvailableCsvName(folderPath);
