@@ -32,6 +32,16 @@ A fast, feature-rich CSV/TSV editor for [Obsidian](https://obsidian.md). Edit ta
 
 ## Installation
 
+### From Community Plugins (coming soon)
+
+Search for **Tablite** in Obsidian Settings → Community Plugins → Browse.
+
+### Via BRAT
+
+1. Install [BRAT](https://github.com/TfTHacker/obsidian42-brat) plugin
+2. In BRAT settings, select **Add Beta Plugin**
+3. Enter `laofahai/obsidian-tablite`
+
 ### Manual Installation
 
 1. Download `tablite-x.x.x.zip` from the [latest release](https://github.com/laofahai/obsidian-tablite/releases)

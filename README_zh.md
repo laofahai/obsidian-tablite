@@ -32,6 +32,16 @@
 
 ## 安装
 
+### 社区插件（即将上线）
+
+在 Obsidian 设置 → 社区插件 → 浏览 中搜索 **Tablite**。
+
+### 通过 BRAT 安装
+
+1. 安装 [BRAT](https://github.com/TfTHacker/obsidian42-brat) 插件
+2. 在 BRAT 设置中选择 **Add Beta Plugin**
+3. 输入 `laofahai/obsidian-tablite`
+
 ### 手动安装
 
 1. 从 [最新发布](https://github.com/laofahai/obsidian-tablite/releases) 下载 `tablite-x.x.x.zip`
