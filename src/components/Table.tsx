@@ -21,17 +21,27 @@ interface ActiveCell {
   col: number;
 }
 
+interface SelectionRange {
+  startRow: number;
+  startCol: number;
+  endRow: number;
+  endCol: number;
+}
+
 interface TableProps {
   headers: string[];
   data: string[][];
   searchQuery: string;
   crossHighlight: boolean;
   activeCell: ActiveCell | null;
+  selection: SelectionRange | null;
   columnOrder: number[];
   hiddenColumns: number[];
   columnSizing: Record<string, number>;
   frozenCount: number;
   onActiveCellChange: (cell: ActiveCell | null) => void;
+  onSelectionChange: (selection: SelectionRange | null) => void;
+  onCopy: () => void;
   onColumnOrderChange: (sourceIndex: number, targetIndex: number) => void;
   onColumnSizingChange: (sizing: Record<string, number>) => void;
   onUpdateCell: (rowIndex: number, colIndex: number, value: string) => void;
@@ -151,11 +161,14 @@ export function Table({
   searchQuery,
   crossHighlight,
   activeCell,
+  selection,
   columnOrder,
   hiddenColumns,
   columnSizing,
   frozenCount,
   onActiveCellChange,
+  onSelectionChange,
+  onCopy,
   onColumnOrderChange,
   onColumnSizingChange,
   onUpdateCell,
@@ -308,6 +321,85 @@ export function Table({
     return offsets;
   }, [table, totalWidth]);
 
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef<ActiveCell | null>(null);
+
+  const isCellSelected = useCallback(
+    (row: number, col: number) => {
+      if (!selection) return false;
+      const minRow = Math.min(selection.startRow, selection.endRow);
+      const maxRow = Math.max(selection.startRow, selection.endRow);
+      const minCol = Math.min(selection.startCol, selection.endCol);
+      const maxCol = Math.max(selection.startCol, selection.endCol);
+      return row >= minRow && row <= maxRow && col >= minCol && col <= maxCol;
+    },
+    [selection],
+  );
+
+  const handleCellMouseDown = useCallback(
+    (event: MouseEvent, rowIndex: number, colIndex: number) => {
+      if (colIndex < 0) return; // row number column
+      if (event.button !== 0) return; // left click only
+
+      if (event.shiftKey && activeCell) {
+        // Shift+click: extend selection from activeCell
+        onSelectionChange({
+          startRow: activeCell.row,
+          startCol: activeCell.col,
+          endRow: rowIndex,
+          endCol: colIndex,
+        });
+        event.preventDefault();
+        return;
+      }
+
+      // Start drag
+      isDraggingRef.current = true;
+      dragStartRef.current = { row: rowIndex, col: colIndex };
+      onActiveCellChange({ row: rowIndex, col: colIndex });
+      onSelectionChange(null);
+    },
+    [activeCell, onActiveCellChange, onSelectionChange],
+  );
+
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!isDraggingRef.current || !dragStartRef.current) return;
+      const container = tableContainerRef.current;
+      if (!container) return;
+
+      // Find cell under cursor
+      const target = document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null;
+      const td = target?.closest<HTMLElement>("[data-row-index][data-col-index]");
+      if (!td) return;
+
+      const rowIndex = Number(td.dataset.rowIndex);
+      const colIndex = Number(td.dataset.colIndex);
+      if (Number.isNaN(rowIndex) || Number.isNaN(colIndex) || colIndex < 0) return;
+
+      const start = dragStartRef.current;
+      if (rowIndex !== start.row || colIndex !== start.col) {
+        onSelectionChange({
+          startRow: start.row,
+          startCol: start.col,
+          endRow: rowIndex,
+          endCol: colIndex,
+        });
+      }
+    };
+
+    const handleMouseUp = () => {
+      isDraggingRef.current = false;
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [onSelectionChange]);
+
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => tableContainerRef.current,
@@ -341,6 +433,8 @@ export function Table({
       const menu = document.createElement("div");
       menu.className = "tablite-context-menu";
       const menuItems: Array<{ action: string; label: string } | "hr"> = [
+        { action: "copy", label: "Copy" },
+        "hr",
         { action: "insert-row-above", label: "Insert Row Above" },
         { action: "insert-row-below", label: "Insert Row Below" },
         { action: "delete-row", label: "Delete Row" },
@@ -366,6 +460,9 @@ export function Table({
       const handleClick = (ev: Event) => {
         const target = ev.target as HTMLElement;
         switch (target.dataset.action) {
+          case "copy":
+            onCopy();
+            break;
           case "insert-row-above":
             onInsertRow(rowIndex - 1);
             break;
@@ -399,7 +496,7 @@ export function Table({
         document.addEventListener("click", removeMenu);
       });
     },
-    [onDeleteColumn, onDeleteRow, onInsertColumn, onInsertRow],
+    [onCopy, onDeleteColumn, onDeleteRow, onInsertColumn, onInsertRow],
   );
 
   const getPinnedStyles = useCallback(
@@ -480,11 +577,13 @@ export function Table({
                   const isRowNum = cell.column.id === "__row_num";
                   const colIdx = isRowNum ? -1 : Number(cell.column.id.replace("col_", ""));
                   const isActive = !isRowNum && activeCell?.row === virtualRow.index && activeCell?.col === colIdx;
+                  const isSelected = !isRowNum && !isActive && isCellSelected(virtualRow.index, colIdx);
                   const isRowHL = crossHighlight && !isRowNum && activeCell != null && activeCell.row === virtualRow.index;
                   const isColHL = crossHighlight && !isRowNum && activeCell != null && activeCell.col === colIdx;
 
                   let className = "tablite-td";
                   if (isActive) className += " tablite-td-active";
+                  else if (isSelected) className += " tablite-td-selected";
                   else if (isRowHL || isColHL) className += " tablite-td-cross";
                   if (position < frozenCount + 1) className += " tablite-frozen-cell";
 
@@ -499,11 +598,10 @@ export function Table({
                         width: cell.column.getSize(),
                         minWidth: cell.column.columnDef.minSize,
                         flexShrink: 0,
+                        userSelect: "none",
                         ...getPinnedStyles(cell.column.id, position, false),
                       }}
-                      onClick={() => {
-                        if (!isRowNum) onActiveCellChange({ row: virtualRow.index, col: colIdx });
-                      }}
+                      onMouseDown={(event) => handleCellMouseDown(event as unknown as MouseEvent, virtualRow.index, colIdx)}
                       onContextMenu={(event) => onContextMenu(event as unknown as MouseEvent, virtualRow.index, colIdx)}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}

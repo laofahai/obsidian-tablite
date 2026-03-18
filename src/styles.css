@@ -344,6 +344,10 @@
   background: var(--background-modifier-hover) !important;
 }
 
+.tablite-td-selected {
+  background: color-mix(in srgb, var(--interactive-accent) 15%, transparent) !important;
+}
+
 .tablite-td-cross {
   background: color-mix(in srgb, var(--interactive-accent) 6%, transparent) !important;
 }

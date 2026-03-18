@@ -28,6 +28,49 @@ interface ActiveCell {
   col: number;
 }
 
+interface SelectionRange {
+  startRow: number;
+  startCol: number;
+  endRow: number;
+  endCol: number;
+}
+
+function normalizeRange(range: SelectionRange) {
+  return {
+    minRow: Math.min(range.startRow, range.endRow),
+    maxRow: Math.max(range.startRow, range.endRow),
+    minCol: Math.min(range.startCol, range.endCol),
+    maxCol: Math.max(range.startCol, range.endCol),
+  };
+}
+
+function copySelectionToClipboard(
+  data: string[][],
+  selection: SelectionRange | null,
+  activeCell: ActiveCell | null,
+) {
+  let minRow: number, maxRow: number, minCol: number, maxCol: number;
+
+  if (selection) {
+    ({ minRow, maxRow, minCol, maxCol } = normalizeRange(selection));
+  } else if (activeCell) {
+    minRow = maxRow = activeCell.row;
+    minCol = maxCol = activeCell.col;
+  } else {
+    return;
+  }
+
+  const lines: string[] = [];
+  for (let r = minRow; r <= maxRow; r++) {
+    const cells: string[] = [];
+    for (let c = minCol; c <= maxCol; c++) {
+      cells.push(data[r]?.[c] ?? "");
+    }
+    lines.push(cells.join("\t"));
+  }
+  void navigator.clipboard.writeText(lines.join("\n"));
+}
+
 function ensureEditableState(state: TableState): TableState {
   const headerCount = Math.max(1, state.headers.length);
   const headers =
@@ -64,6 +107,7 @@ export function App({
   const [searchQuery, setSearchQuery] = useState("");
   const [crossHighlight, setCrossHighlight] = useState(true);
   const [activeCell, setActiveCell] = useState<ActiveCell | null>(null);
+  const [selection, setSelection] = useState<SelectionRange | null>(null);
   const [hasHeader, setHasHeader] = useState<boolean>(initialParsed.hasHeader);
 
   const initialState = useMemo<TableState>(
@@ -268,6 +312,11 @@ export function App({
         target?.tagName === "TEXTAREA" ||
         target?.tagName === "SELECT";
 
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "c") {
+        copySelectionToClipboard(data, selection, activeCell);
+        return;
+      }
+
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
         event.preventDefault();
         searchInputRef.current?.focus();
@@ -286,21 +335,47 @@ export function App({
 
       if (!activeCell) return;
 
+      if (event.shiftKey && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
+        event.preventDefault();
+        const base = selection
+          ? { row: selection.endRow, col: selection.endCol }
+          : { row: activeCell.row, col: activeCell.col };
+        let nextRow = base.row;
+        let nextCol = base.col;
+        switch (event.key) {
+          case "ArrowUp": nextRow = Math.max(0, base.row - 1); break;
+          case "ArrowDown": nextRow = Math.min(data.length - 1, base.row + 1); break;
+          case "ArrowLeft": nextCol = Math.max(0, base.col - 1); break;
+          case "ArrowRight": nextCol = Math.min(headers.length - 1, base.col + 1); break;
+        }
+        setSelection({
+          startRow: selection?.startRow ?? activeCell.row,
+          startCol: selection?.startCol ?? activeCell.col,
+          endRow: nextRow,
+          endCol: nextCol,
+        });
+        return;
+      }
+
       switch (event.key) {
         case "ArrowUp":
           event.preventDefault();
+          setSelection(null);
           if (activeCell.row > 0) setActiveCell({ row: activeCell.row - 1, col: activeCell.col });
           break;
         case "ArrowDown":
           event.preventDefault();
+          setSelection(null);
           if (activeCell.row < data.length - 1) setActiveCell({ row: activeCell.row + 1, col: activeCell.col });
           break;
         case "ArrowLeft":
           event.preventDefault();
+          setSelection(null);
           if (activeCell.col > 0) setActiveCell({ row: activeCell.row, col: activeCell.col - 1 });
           break;
         case "ArrowRight":
           event.preventDefault();
+          setSelection(null);
           if (activeCell.col < headers.length - 1) setActiveCell({ row: activeCell.row, col: activeCell.col + 1 });
           break;
       }
@@ -308,7 +383,7 @@ export function App({
 
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
-  }, [activeCell, data.length, headers.length, navigateSearch]);
+  }, [activeCell, data, selection, headers.length, navigateSearch]);
 
   const activeMatchIndex = useMemo(
     () => searchMatches.findIndex((match) => match.row === activeCell?.row && match.col === activeCell?.col),
@@ -358,11 +433,14 @@ export function App({
         searchQuery={searchQuery}
         crossHighlight={crossHighlight}
         activeCell={activeCell}
+        selection={selection}
         columnOrder={columnConfig.order}
         hiddenColumns={columnConfig.hidden}
         columnSizing={columnConfig.sizing}
         frozenCount={columnConfig.frozenCount}
         onActiveCellChange={setActiveCell}
+        onSelectionChange={setSelection}
+        onCopy={() => copySelectionToClipboard(data, selection, activeCell)}
         onColumnOrderChange={moveColumn}
         onColumnSizingChange={updateColumnSizing}
         onUpdateCell={updateCell}
