@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useRef, useState, useEffect } from "preact/hooks";
+import { useMemo, useCallback, useRef, useState, useEffect, type MutableRef } from "preact/hooks";
 import { type Delimiter } from "../parser/detect";
 import { parseCSV, serializeCSV, type ParseResult } from "../parser/csv-engine";
 import { useTableData, type TableState } from "../hooks/useTableData";
@@ -48,22 +48,41 @@ function copySelectionToClipboard(
   data: string[][],
   selection: SelectionRange | null,
   activeCell: ActiveCell | null,
+  sortedRowIndices: number[] | null,
 ) {
-  let minRow: number, maxRow: number, minCol: number, maxCol: number;
+  let selectedRows: number[];
+  let minCol: number, maxCol: number;
 
   if (selection) {
-    ({ minRow, maxRow, minCol, maxCol } = normalizeRange(selection));
+    const norm = normalizeRange(selection);
+    minCol = norm.minCol;
+    maxCol = norm.maxCol;
+    // Collect rows in display order that fall within the selection range
+    const rowSet = new Set<number>();
+    const minRow = norm.minRow;
+    const maxRow = norm.maxRow;
+    // Selection uses original data indices; collect all original indices in the range
+    if (sortedRowIndices) {
+      // Walk in display order, pick rows whose original index is in range
+      for (const origIdx of sortedRowIndices) {
+        if (origIdx >= minRow && origIdx <= maxRow) rowSet.add(origIdx);
+      }
+      selectedRows = sortedRowIndices.filter((idx) => rowSet.has(idx));
+    } else {
+      selectedRows = [];
+      for (let r = minRow; r <= maxRow; r++) selectedRows.push(r);
+    }
   } else if (activeCell) {
-    minRow = maxRow = activeCell.row;
+    selectedRows = [activeCell.row];
     minCol = maxCol = activeCell.col;
   } else {
     return;
   }
 
   const lines: string[] = [];
-  for (let r = minRow; r <= maxRow; r++) {
+  for (const r of selectedRows) {
     const cells: string[] = [];
-    for (let c = minCol; c <= maxCol; c++) {
+    for (let c = minCol!; c <= maxCol!; c++) {
       cells.push(data[r]?.[c] ?? "");
     }
     lines.push(cells.join("\t"));
@@ -109,6 +128,7 @@ export function App({
   const [activeCell, setActiveCell] = useState<ActiveCell | null>(null);
   const [selection, setSelection] = useState<SelectionRange | null>(null);
   const [hasHeader, setHasHeader] = useState<boolean>(initialParsed.hasHeader);
+  const sortedRowIndicesRef = useRef<number[] | null>(null) as MutableRef<number[] | null>;
 
   const initialState = useMemo<TableState>(
     () => ensureEditableState({ headers: initialParsed.headers, data: initialParsed.data }),
@@ -304,6 +324,21 @@ export function App({
     setActiveCell(searchMatches[nextIndex]);
   }, [activeCell?.col, activeCell?.row, searchMatches]);
 
+  // Navigate rows in display order (respects sorting/filtering)
+  const getAdjacentRow = useCallback(
+    (currentRow: number, delta: number): number => {
+      const indices = sortedRowIndicesRef.current;
+      if (!indices || indices.length === 0) {
+        return Math.max(0, Math.min(data.length - 1, currentRow + delta));
+      }
+      const pos = indices.indexOf(currentRow);
+      if (pos < 0) return currentRow;
+      const nextPos = Math.max(0, Math.min(indices.length - 1, pos + delta));
+      return indices[nextPos];
+    },
+    [data.length],
+  );
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -313,7 +348,7 @@ export function App({
         target?.tagName === "SELECT";
 
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "c") {
-        copySelectionToClipboard(data, selection, activeCell);
+        copySelectionToClipboard(data, selection, activeCell, sortedRowIndicesRef.current);
         return;
       }
 
@@ -343,8 +378,8 @@ export function App({
         let nextRow = base.row;
         let nextCol = base.col;
         switch (event.key) {
-          case "ArrowUp": nextRow = Math.max(0, base.row - 1); break;
-          case "ArrowDown": nextRow = Math.min(data.length - 1, base.row + 1); break;
+          case "ArrowUp": nextRow = getAdjacentRow(base.row, -1); break;
+          case "ArrowDown": nextRow = getAdjacentRow(base.row, 1); break;
           case "ArrowLeft": nextCol = Math.max(0, base.col - 1); break;
           case "ArrowRight": nextCol = Math.min(headers.length - 1, base.col + 1); break;
         }
@@ -361,12 +396,12 @@ export function App({
         case "ArrowUp":
           event.preventDefault();
           setSelection(null);
-          if (activeCell.row > 0) setActiveCell({ row: activeCell.row - 1, col: activeCell.col });
+          setActiveCell({ row: getAdjacentRow(activeCell.row, -1), col: activeCell.col });
           break;
         case "ArrowDown":
           event.preventDefault();
           setSelection(null);
-          if (activeCell.row < data.length - 1) setActiveCell({ row: activeCell.row + 1, col: activeCell.col });
+          setActiveCell({ row: getAdjacentRow(activeCell.row, 1), col: activeCell.col });
           break;
         case "ArrowLeft":
           event.preventDefault();
@@ -383,7 +418,7 @@ export function App({
 
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
-  }, [activeCell, data, selection, headers.length, navigateSearch]);
+  }, [activeCell, data, selection, headers.length, navigateSearch, getAdjacentRow]);
 
   const activeMatchIndex = useMemo(
     () => searchMatches.findIndex((match) => match.row === activeCell?.row && match.col === activeCell?.col),
@@ -440,7 +475,7 @@ export function App({
         frozenCount={columnConfig.frozenCount}
         onActiveCellChange={setActiveCell}
         onSelectionChange={setSelection}
-        onCopy={() => copySelectionToClipboard(data, selection, activeCell)}
+        onCopy={() => copySelectionToClipboard(data, selection, activeCell, sortedRowIndicesRef.current)}
         onColumnOrderChange={moveColumn}
         onColumnSizingChange={updateColumnSizing}
         onUpdateCell={updateCell}
@@ -449,6 +484,7 @@ export function App({
         onDeleteRow={handleDeleteRow}
         onInsertColumn={handleInsertColumn}
         onDeleteColumn={handleDeleteColumn}
+        sortedRowIndicesRef={sortedRowIndicesRef}
       />
     </div>
   );

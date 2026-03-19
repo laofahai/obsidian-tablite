@@ -39,6 +39,7 @@ interface TableProps {
   hiddenColumns: number[];
   columnSizing: Record<string, number>;
   frozenCount: number;
+  sortedRowIndicesRef?: { current: number[] | null };
   onActiveCellChange: (cell: ActiveCell | null) => void;
   onSelectionChange: (selection: SelectionRange | null) => void;
   onCopy: () => void;
@@ -70,7 +71,13 @@ function inferColumnType(data: string[][], colIndex: number): "number" | "date" 
   }
   if (nonEmpty.length === 0) return "string";
 
-  const numberCount = nonEmpty.filter((value) => !Number.isNaN(Number(value))).length;
+  const numberCount = nonEmpty.filter((value) => {
+    if (Number.isNaN(Number(value))) return false;
+    // Exclude long pure-digit strings (e.g. phone numbers, IDs) — cap at 10 digits
+    const stripped = value.replace(/[-+.,\s]/g, "");
+    if (/^\d+$/.test(stripped) && stripped.length > 10) return false;
+    return true;
+  }).length;
   if (numberCount / nonEmpty.length >= 0.9) return "number";
 
   const dateCount = nonEmpty.filter((value) => !Number.isNaN(Date.parse(value))).length;
@@ -177,6 +184,7 @@ export function Table({
   onDeleteRow,
   onInsertColumn,
   onDeleteColumn,
+  sortedRowIndicesRef,
 }: TableProps) {
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -305,6 +313,20 @@ export function Table({
 
   const { rows } = table.getRowModel();
 
+  // Build original-index → display-position map for activeCell/selection lookups
+  const originalToDisplay = useMemo(() => {
+    const map = new Map<number, number>();
+    for (let i = 0; i < rows.length; i++) {
+      map.set(rows[i].index, i);
+    }
+    return map;
+  }, [rows]);
+
+  // Expose sorted row indices (original data index in display order) to parent
+  if (sortedRowIndicesRef) {
+    sortedRowIndicesRef.current = rows.map((r) => r.index);
+  }
+
   const totalWidth = table.getHeaderGroups()[0]?.headers.reduce(
     (sum, header) => sum + header.getSize(),
     0,
@@ -409,7 +431,10 @@ export function Table({
 
   useEffect(() => {
     if (!activeCell) return;
-    rowVirtualizer.scrollToIndex(activeCell.row, { align: "auto" });
+    // activeCell.row is an original data index; convert to display position for virtualizer
+    const displayIndex = originalToDisplay.get(activeCell.row);
+    if (displayIndex == null) return;
+    rowVirtualizer.scrollToIndex(displayIndex, { align: "auto" });
 
     const frame = window.requestAnimationFrame(() => {
       const container = tableContainerRef.current;
@@ -425,7 +450,7 @@ export function Table({
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [activeCell, rowVirtualizer]);
+  }, [activeCell, rowVirtualizer, originalToDisplay]);
 
   const onContextMenu = useCallback(
     (event: MouseEvent, rowIndex: number, colIndex: number) => {
@@ -561,7 +586,7 @@ export function Table({
               <tr
                 key={row.id}
                 data-index={virtualRow.index}
-                data-row-index={virtualRow.index}
+                data-row-index={row.index}
                 ref={(element) => {
                   if (element) rowVirtualizer.measureElement(element);
                 }}
@@ -576,21 +601,21 @@ export function Table({
                 {row.getVisibleCells().map((cell, position) => {
                   const isRowNum = cell.column.id === "__row_num";
                   const colIdx = isRowNum ? -1 : Number(cell.column.id.replace("col_", ""));
-                  const isActive = !isRowNum && activeCell?.row === virtualRow.index && activeCell?.col === colIdx;
-                  const isSelected = !isRowNum && !isActive && isCellSelected(virtualRow.index, colIdx);
-                  const isRowHL = crossHighlight && !isRowNum && activeCell != null && activeCell.row === virtualRow.index;
+                  const isActive = !isRowNum && activeCell?.row === row.index && activeCell?.col === colIdx;
+                  const isSelected = !isRowNum && !isActive && isCellSelected(row.index, colIdx);
+                  const isRowHL = crossHighlight && !isRowNum && activeCell != null && activeCell.row === row.index;
                   const isColHL = crossHighlight && !isRowNum && activeCell != null && activeCell.col === colIdx;
 
                   let className = "tablite-td";
-                  if (isActive) className += " tablite-td-active";
-                  else if (isSelected) className += " tablite-td-selected";
+                  if (isActive && !selection) className += " tablite-td-active";
+                  else if (isActive || isSelected) className += " tablite-td-selected";
                   else if (isRowHL || isColHL) className += " tablite-td-cross";
                   if (position < frozenCount + 1) className += " tablite-frozen-cell";
 
                   return (
                     <td
                       key={cell.id}
-                      data-row-index={virtualRow.index}
+                      data-row-index={row.index}
                       data-col-index={colIdx >= 0 ? colIdx : undefined}
                       class={className}
                       style={{
@@ -601,8 +626,8 @@ export function Table({
                         userSelect: "none",
                         ...getPinnedStyles(cell.column.id, position, false),
                       }}
-                      onMouseDown={(event) => handleCellMouseDown(event as unknown as MouseEvent, virtualRow.index, colIdx)}
-                      onContextMenu={(event) => onContextMenu(event as unknown as MouseEvent, virtualRow.index, colIdx)}
+                      onMouseDown={(event) => handleCellMouseDown(event as unknown as MouseEvent, row.index, colIdx)}
+                      onContextMenu={(event) => onContextMenu(event as unknown as MouseEvent, row.index, colIdx)}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
