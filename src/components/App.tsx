@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useRef, useState, useEffect, type MutableRef } from "preact/hooks";
+import { useMemo, useCallback, useRef, useState, useEffect } from "preact/hooks";
 import { type Delimiter } from "../parser/detect";
 import { parseCSV, serializeCSV, type ParseResult } from "../parser/csv-engine";
 import { useTableData, type TableState } from "../hooks/useTableData";
@@ -128,7 +128,7 @@ export function App({
   const [activeCell, setActiveCell] = useState<ActiveCell | null>(null);
   const [selection, setSelection] = useState<SelectionRange | null>(null);
   const [hasHeader, setHasHeader] = useState<boolean>(initialParsed.hasHeader);
-  const sortedRowIndicesRef = useRef<number[] | null>(null) as MutableRef<number[] | null>;
+  const sortedRowIndicesRef = useRef<number[] | null>(null);
 
   const initialState = useMemo<TableState>(
     () => ensureEditableState({ headers: initialParsed.headers, data: initialParsed.data }),
