@@ -11,8 +11,6 @@ export class CsvView extends TextFileView {
   private rootEl: HTMLDivElement | null = null;
   private plugin: TablitePlugin;
   private detectedEncoding = "utf-8";
-  private saveTimer: number | null = null;
-  private lastSavedData = "";
 
   constructor(leaf: WorkspaceLeaf, plugin: TablitePlugin) {
     super(leaf);
@@ -35,7 +33,6 @@ export class CsvView extends TextFileView {
       this.data = await this.app.vault.read(file);
       this.detectedEncoding = "utf-8";
     }
-    this.lastSavedData = this.data;
     this.setViewData(this.data, true);
   }
 
@@ -63,7 +60,6 @@ export class CsvView extends TextFileView {
   }
 
   clear(): void {
-    this.clearPendingSave();
     this.data = "";
   }
 
@@ -72,41 +68,9 @@ export class CsvView extends TextFileView {
   }
 
   onClose(): void {
-    this.clearPendingSave();
     if (this.rootEl) {
       render(null, this.rootEl);
     }
-  }
-
-  async save(clear?: boolean): Promise<void> {
-    await this.persistData();
-    if (clear) {
-      this.clear();
-    }
-  }
-
-  private clearPendingSave(): void {
-    if (this.saveTimer !== null) {
-      window.clearTimeout(this.saveTimer);
-      this.saveTimer = null;
-    }
-  }
-
-  private schedulePersist(): void {
-    this.clearPendingSave();
-    this.saveTimer = window.setTimeout(() => {
-      this.saveTimer = null;
-      void this.persistData();
-    }, 250);
-  }
-
-  private async persistData(): Promise<void> {
-    const file = this.file;
-    if (!file) return;
-    if (this.data === this.lastSavedData) return;
-
-    await this.app.vault.modify(file, this.data);
-    this.lastSavedData = this.data;
   }
 
   private renderApp(): void {
@@ -133,8 +97,8 @@ export class CsvView extends TextFileView {
           await this.plugin.setFileColumnConfig(filePath, nextColumnCount, config);
         },
         onDataChange: (newData: string) => {
-          this.data = newData;
-          this.schedulePersist();
+          this.setViewData(newData, false);
+          this.requestSave();
         },
       }),
       this.rootEl,

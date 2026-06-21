@@ -52,7 +52,7 @@ export function Cell({
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
-            commitValue((e.target as HTMLInputElement).value);
+            (e.target as HTMLInputElement).blur();
           } else if (e.key === "Escape") {
             e.preventDefault();
             setEditValue(value);
