@@ -20,6 +20,14 @@ export function Cell({
   const [editValue, setEditValue] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const commitValue = (nextValue: string) => {
+    setEditing(false);
+    setEditValue(nextValue);
+    if (nextValue !== value) {
+      onUpdate(rowIndex, colIndex, nextValue);
+    }
+  };
+
   // Sync value from parent when not editing
   useEffect(() => {
     if (!editing) setEditValue(value);
@@ -40,16 +48,11 @@ export function Cell({
         class="tablite-cell-input"
         value={editValue}
         onInput={(e) => setEditValue((e.target as HTMLInputElement).value)}
-        onBlur={() => {
-          setEditing(false);
-          if (editValue !== value) {
-            onUpdate(rowIndex, colIndex, editValue);
-          }
-        }}
+        onBlur={(e) => commitValue((e.target as HTMLInputElement).value)}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
-            (e.target as HTMLInputElement).blur();
+            commitValue((e.target as HTMLInputElement).value);
           } else if (e.key === "Escape") {
             e.preventDefault();
             setEditValue(value);
