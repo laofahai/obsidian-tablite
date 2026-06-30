@@ -53,7 +53,7 @@ export class CsvView extends TextFileView {
     return this.data;
   }
 
-  setViewData(data: string, clear: boolean): void {
+  setViewData(data: string, _clear: boolean): void {
     this.data = data;
     this.renderRevision += 1;
     this.renderApp();

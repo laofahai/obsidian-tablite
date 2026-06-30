@@ -32,7 +32,7 @@ A fast, feature-rich CSV/TSV editor for [Obsidian](https://obsidian.md). Edit ta
 
 ## Installation
 
-### From Community Plugins (coming soon)
+### From Community Plugins
 
 Search for **Tablite** in Obsidian Settings → Community Plugins → Browse.
 
@@ -44,8 +44,8 @@ Search for **Tablite** in Obsidian Settings → Community Plugins → Browse.
 
 ### Manual Installation
 
-1. Download `tablite-x.x.x.zip` from the [latest release](https://github.com/laofahai/obsidian-tablite/releases)
-2. Extract the zip into `<vault>/.obsidian/plugins/`
+1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/laofahai/obsidian-tablite/releases/latest)
+2. Put the files into `<vault>/.obsidian/plugins/tablite/`
 3. Restart Obsidian and enable **Tablite** in Settings → Community Plugins
 
 ## Usage

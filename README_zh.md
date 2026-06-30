@@ -32,7 +32,7 @@
 
 ## 安装
 
-### 社区插件（即将上线）
+### 社区插件
 
 在 Obsidian 设置 → 社区插件 → 浏览 中搜索 **Tablite**。
 
@@ -44,8 +44,8 @@
 
 ### 手动安装
 
-1. 从 [最新发布](https://github.com/laofahai/obsidian-tablite/releases) 下载 `tablite-x.x.x.zip`
-2. 解压到 `<vault>/.obsidian/plugins/` 目录下
+1. 从 [最新发布](https://github.com/laofahai/obsidian-tablite/releases/latest) 下载 `main.js`、`manifest.json` 和 `styles.css`
+2. 放入 `<vault>/.obsidian/plugins/tablite/` 目录
 3. 重启 Obsidian，在设置 → 社区插件中启用 **Tablite**
 
 ## 使用
