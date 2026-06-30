@@ -54,7 +54,9 @@ export class CsvView extends TextFileView {
 
   setViewData(data: string, clear: boolean): void {
     this.data = data;
-    this.renderApp();
+    if (clear) {
+      this.renderApp();
+    }
   }
 
   clear(): void {
@@ -95,7 +97,7 @@ export class CsvView extends TextFileView {
           await this.plugin.setFileColumnConfig(filePath, nextColumnCount, config);
         },
         onDataChange: (newData: string) => {
-          this.data = newData;
+          this.setViewData(newData, false);
           this.requestSave();
         },
       }),
