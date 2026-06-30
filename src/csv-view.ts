@@ -11,6 +11,7 @@ export class CsvView extends TextFileView {
   private rootEl: HTMLDivElement | null = null;
   private plugin: TablitePlugin;
   private detectedEncoding = "utf-8";
+  private renderRevision = 0;
 
   constructor(leaf: WorkspaceLeaf, plugin: TablitePlugin) {
     super(leaf);
@@ -54,9 +55,8 @@ export class CsvView extends TextFileView {
 
   setViewData(data: string, clear: boolean): void {
     this.data = data;
-    if (clear) {
-      this.renderApp();
-    }
+    this.renderRevision += 1;
+    this.renderApp();
   }
 
   clear(): void {
@@ -85,7 +85,7 @@ export class CsvView extends TextFileView {
 
     render(
       h(App, {
-        key: filePath,
+        key: `${filePath}:${this.renderRevision}`,
         initialData: initialText,
         initialParsed: parsed,
         initialDelimiter: delimiter,
@@ -97,7 +97,7 @@ export class CsvView extends TextFileView {
           await this.plugin.setFileColumnConfig(filePath, nextColumnCount, config);
         },
         onDataChange: (newData: string) => {
-          this.setViewData(newData, false);
+          this.data = newData;
           this.requestSave();
         },
       }),
