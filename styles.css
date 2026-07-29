@@ -395,6 +395,26 @@
   background: var(--background-modifier-hover);
 }
 
+.tablite-cell-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tablite-cell-link {
+  color: var(--link-external-color, var(--text-accent));
+  text-decoration: underline;
+  text-decoration-color: var(--link-external-decoration-color, currentColor);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tablite-cell-link:hover {
+  color: var(--link-external-color-hover, var(--text-accent-hover));
+}
+
 .tablite-cell-input {
   width: 100%;
   height: 100%;
