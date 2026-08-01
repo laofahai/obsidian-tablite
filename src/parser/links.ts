@@ -11,13 +11,12 @@ export interface TextSegment {
 const URL_RE = /\b(?:https?:\/\/|www\.)[^\s<>"']+/gi;
 
 /** Punctuation that commonly follows a URL in prose rather than belonging to it */
-const TRAILING_PUNCT = /[.,;:!?)\]}'"]+$/;
+const TRAILING_PUNCT = /[.,;:!?\]}'"]+$/;
 
 function trimTrailing(match: string): string {
   let url = match.replace(TRAILING_PUNCT, "");
-  // Keep a closing paren that pairs with an opening one inside the URL (wiki links)
-  if (match.endsWith(")") && countChar(url, "(") > countChar(url, ")")) {
-    url += ")";
+  while (url.endsWith(")") && countChar(url, ")") > countChar(url, "(")) {
+    url = url.slice(0, -1);
   }
   return url;
 }

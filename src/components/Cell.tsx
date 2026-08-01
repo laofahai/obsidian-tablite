@@ -56,6 +56,9 @@ export function Cell({
     }
   }, [editing]);
 
+  const segments = useMemo(() => splitLinks(value), [value]);
+  const hasLink = segments.some((s) => s.href !== null);
+
   if (editing) {
     return (
       <input
@@ -80,9 +83,6 @@ export function Cell({
 
   const sq = searchQueryRef.current ?? "";
   const isMatch = sq.length > 0 && value.toLowerCase().includes(sq.toLowerCase());
-
-  const segments = useMemo(() => splitLinks(value), [value]);
-  const hasLink = segments.some((s) => s.href !== null);
 
   return (
     <div
@@ -123,7 +123,7 @@ export function Cell({
                   const href = segment.href as string;
                   linkTimerRef.current = window.setTimeout(() => {
                     linkTimerRef.current = null;
-                    window.open(href, "_blank");
+                    window.open(href, "_blank", "noopener,noreferrer");
                   }, DOUBLE_CLICK_DELAY);
                 }}
               >
