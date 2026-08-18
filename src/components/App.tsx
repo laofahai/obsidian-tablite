@@ -347,19 +347,19 @@ export function App({
         target?.tagName === "TEXTAREA" ||
         target?.tagName === "SELECT";
 
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "c") {
+      if (!isTextInput && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "c") {
         copySelectionToClipboard(data, selection, activeCell, sortedRowIndicesRef.current);
         return;
       }
 
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
+      if (!isTextInput && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
         event.preventDefault();
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
         return;
       }
 
-      if (event.key === "F3") {
+      if (!isTextInput && event.key === "F3") {
         event.preventDefault();
         navigateSearch(event.shiftKey ? -1 : 1);
         return;
