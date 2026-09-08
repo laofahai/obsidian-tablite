@@ -13,13 +13,10 @@ export class CsvView extends TextFileView {
   private detectedEncoding = "utf-8";
   private renderRevision = 0;
 
-  // Custom save pipeline — bypasses TextFileView's built-in requestSave()/save(),
-  // which was found to silently fail to persist edits in some environments.
-  // Instead we write directly via vault.process(), verify the write by reading
-  // the file back, and retry once if the content doesn't match.
+  // A single queue owns autosave, explicit save, and file unload.
   private saveDebounceTimer: number | null = null;
   private pendingSaveData: string | null = null;
-  private isSaving = false;
+  private savePromise: Promise<void> | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: TablitePlugin) {
     super(leaf);
@@ -67,6 +64,9 @@ export class CsvView extends TextFileView {
   }
 
   setViewData(data: string, _clear: boolean): void {
+    // Vault notifications from our own write must not remount the editor and
+    // replace an edit that arrived while that write was in flight.
+    if (!_clear && (this.pendingSaveData !== null || this.savePromise)) return;
     this.data = data;
     this.renderRevision += 1;
     this.renderApp();
@@ -76,20 +76,25 @@ export class CsvView extends TextFileView {
     this.data = "";
   }
 
-  onOpen(): void {
+  async onOpen(): Promise<void> {
     this.rootEl = this.contentEl.createDiv({ cls: "tablite-root" });
   }
 
-  onClose(): void {
-    if (this.saveDebounceTimer !== null) {
-      window.clearTimeout(this.saveDebounceTimer);
-    }
+  async onClose(): Promise<void> {
+    await this.flushPendingSave();
     if (this.rootEl) {
       render(null, this.rootEl);
+      this.rootEl = null;
     }
   }
 
-  /** Schedules a verified save, debounced by 1s so rapid edits don't spam disk writes. */
+  // TextFileView can also save on unload. Route that call through the queue,
+  // rather than running a second, independent persistence mechanism.
+  async save(clear = false): Promise<void> {
+    await this.flushPendingSave();
+    if (clear) this.clear();
+  }
+
   private scheduleSave(newData: string): void {
     this.pendingSaveData = newData;
     if (this.saveDebounceTimer !== null) {
@@ -97,66 +102,54 @@ export class CsvView extends TextFileView {
     }
     this.saveDebounceTimer = window.setTimeout(() => {
       this.saveDebounceTimer = null;
-      void this.performVerifiedSave();
+      // drainSaves reports errors and retains the pending edit for another try.
+      void this.performVerifiedSave().catch(() => {});
     }, 1000);
   }
 
-  /** Writes the pending data to disk via vault.process(), verifies it landed, retries once if not. */
-  private async performVerifiedSave(attempt = 1): Promise<void> {
-    if (this.isSaving) {
-      // Another save is already in flight — the debounce will re-trigger once it's done
-      // if pendingSaveData is still newer, so just bail out here.
-      return;
-    }
-    if (!this.file || this.pendingSaveData === null) return;
+  private performVerifiedSave(): Promise<void> {
+    if (this.savePromise) return this.savePromise;
+    const file = this.file;
+    if (!file || this.pendingSaveData === null) return Promise.resolve();
+    this.savePromise = this.drainSaves(file).finally(() => {
+      this.savePromise = null;
+    });
+    return this.savePromise;
+  }
 
-    const dataToWrite = this.pendingSaveData;
-    this.isSaving = true;
-    try {
-      await this.app.vault.process(this.file, () => dataToWrite);
-
-      // Verify: read the file back and compare (ignoring CRLF/LF style differences,
-      // which are cosmetic and not a sign of failed persistence).
-      const onDisk = await this.app.vault.read(this.file);
-      const normalize = (s: string) => s.replace(/\r\n/g, "\n");
-      const persisted = normalize(onDisk) === normalize(dataToWrite);
-
-      if (persisted) {
-        // Only clear pendingSaveData if nothing newer has queued up in the meantime.
-        if (this.pendingSaveData === dataToWrite) {
-          this.pendingSaveData = null;
+  private async drainSaves(file: TFile): Promise<void> {
+    while (this.pendingSaveData !== null) {
+      const dataToWrite = this.pendingSaveData;
+      let persisted = false;
+      let failure: unknown;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          await this.app.vault.process(file, () => dataToWrite);
+          const onDisk = await this.app.vault.read(file);
+          if (onDisk !== dataToWrite) {
+            throw new Error("CSV contents did not match after saving");
+          }
+          persisted = true;
+          break;
+        } catch (error) {
+          failure = error;
         }
-      } else if (attempt < 3) {
-        console.warn(`tablite: save did not persist as expected, retrying (attempt ${attempt + 1}/3)`);
-        this.isSaving = false;
-        await this.performVerifiedSave(attempt + 1);
-        return;
-      } else {
-        console.error("tablite: save failed to persist after 3 attempts.");
-        new Notice("Tablite: échec de la sauvegarde du CSV après plusieurs tentatives. Vos dernières modifications n'ont peut-être pas été enregistrées.", 8000);
       }
-    } catch (err) {
-      console.error("tablite: error while saving CSV", err);
-      if (attempt < 3) {
-        this.isSaving = false;
-        await this.performVerifiedSave(attempt + 1);
-        return;
+      if (!persisted) {
+        new Notice(`Tablite: Could not save ${file.path}. Your edits are still pending. Please retry before closing.`, 8000);
+        throw failure;
       }
-      new Notice("Tablite: erreur lors de la sauvegarde du CSV. Voir la console pour le détail.", 8000);
-    } finally {
-      this.isSaving = false;
+      if (this.pendingSaveData === dataToWrite) this.pendingSaveData = null;
+      // Continue immediately if an edit arrived while the write was pending.
     }
   }
 
-  /** Force an immediate save of any pending changes, bypassing the debounce (e.g. before closing). */
   async flushPendingSave(): Promise<void> {
     if (this.saveDebounceTimer !== null) {
       window.clearTimeout(this.saveDebounceTimer);
       this.saveDebounceTimer = null;
     }
-    if (this.pendingSaveData !== null) {
-      await this.performVerifiedSave();
-    }
+    await this.performVerifiedSave();
   }
 
   private renderApp(): void {

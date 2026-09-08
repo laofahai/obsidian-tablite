@@ -23,15 +23,19 @@ export function useKeyboard({
 }: UseKeyboardOptions) {
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      // Skip if inside an input/textarea
       const target = e.target as HTMLElement;
-      const isInputField =
+      if (
         target.tagName === "INPUT" ||
         target.tagName === "TEXTAREA" ||
-        target.tagName === "SELECT";
+        target.tagName === "SELECT"
+      ) {
+        return;
+      }
 
-      // Undo/Redo — only when not actively editing a cell, so Ctrl+Z inside an
-      // input performs the native text-undo instead of reverting the whole table.
-      if (!isInputField && (e.metaKey || e.ctrlKey) && e.key === "z") {
+
+      // Undo/Redo
+      if ((e.metaKey || e.ctrlKey) && e.key === "z") {
         e.preventDefault();
         if (e.shiftKey) {
           onRedo();
@@ -44,26 +48,40 @@ export function useKeyboard({
       if (!activeCell) return;
       const [row, col] = activeCell;
 
-      // Skip if inside an input/textarea
-      if (isInputField) {
-        return;
-      }
 
       switch (e.key) {
         case "ArrowUp":
+          e.preventDefault();
           if (row > 0) onActivate(row - 1, col);
           break;
         case "ArrowDown":
+          e.preventDefault();
           if (row < rowCount - 1) onActivate(row + 1, col);
           break;
         case "ArrowLeft":
+          e.preventDefault();
           if (col > 0) onActivate(row, col - 1);
           break;
         case "ArrowRight":
+          e.preventDefault();
           if (col < colCount - 1) onActivate(row, col + 1);
           break;
+        case "Tab":
+          e.preventDefault();
+          if (e.shiftKey) {
+            if (col > 0) onActivate(row, col - 1);
+            else if (row > 0) onActivate(row - 1, colCount - 1);
+          } else {
+            if (col < colCount - 1) onActivate(row, col + 1);
+            else if (row < rowCount - 1) onActivate(row + 1, 0);
+          }
+          break;
         case "Enter":
+          e.preventDefault();
+          onStartEdit(row, col);
+          break;
         case "F2":
+          e.preventDefault();
           onStartEdit(row, col);
           break;
       }
