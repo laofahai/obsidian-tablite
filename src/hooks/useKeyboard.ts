@@ -23,6 +23,17 @@ export function useKeyboard({
 }: UseKeyboardOptions) {
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      // Skip if inside an input/textarea
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT"
+      ) {
+        return;
+      }
+
+
       // Undo/Redo
       if ((e.metaKey || e.ctrlKey) && e.key === "z") {
         e.preventDefault();
@@ -37,15 +48,6 @@ export function useKeyboard({
       if (!activeCell) return;
       const [row, col] = activeCell;
 
-      // Skip if inside an input/textarea
-      const target = e.target as HTMLElement;
-      if (
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.tagName === "SELECT"
-      ) {
-        return;
-      }
 
       switch (e.key) {
         case "ArrowUp":

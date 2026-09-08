@@ -1,4 +1,4 @@
-import { TextFileView, WorkspaceLeaf, type TFile } from "obsidian";
+import { Notice, TextFileView, WorkspaceLeaf, type TFile } from "obsidian";
 import { render, h } from "preact";
 import { App } from "./components/App";
 import TablitePlugin from "./main";
@@ -12,6 +12,11 @@ export class CsvView extends TextFileView {
   private plugin: TablitePlugin;
   private detectedEncoding = "utf-8";
   private renderRevision = 0;
+
+  // A single queue owns autosave, explicit save, and file unload.
+  private saveDebounceTimer: number | null = null;
+  private pendingSaveData: string | null = null;
+  private savePromise: Promise<void> | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: TablitePlugin) {
     super(leaf);
@@ -37,6 +42,11 @@ export class CsvView extends TextFileView {
     this.setViewData(this.data, true);
   }
 
+  async onUnloadFile(file: TFile): Promise<void> {
+    await this.flushPendingSave();
+    await super.onUnloadFile(file);
+  }
+
   getViewType(): string {
     return CSV_VIEW_TYPE;
   }
@@ -54,6 +64,9 @@ export class CsvView extends TextFileView {
   }
 
   setViewData(data: string, _clear: boolean): void {
+    // Vault notifications from our own write must not remount the editor and
+    // replace an edit that arrived while that write was in flight.
+    if (!_clear && (this.pendingSaveData !== null || this.savePromise)) return;
     this.data = data;
     this.renderRevision += 1;
     this.renderApp();
@@ -63,14 +76,80 @@ export class CsvView extends TextFileView {
     this.data = "";
   }
 
-  onOpen(): void {
+  async onOpen(): Promise<void> {
     this.rootEl = this.contentEl.createDiv({ cls: "tablite-root" });
   }
 
-  onClose(): void {
+  async onClose(): Promise<void> {
+    await this.flushPendingSave();
     if (this.rootEl) {
       render(null, this.rootEl);
+      this.rootEl = null;
     }
+  }
+
+  // TextFileView can also save on unload. Route that call through the queue,
+  // rather than running a second, independent persistence mechanism.
+  async save(clear = false): Promise<void> {
+    await this.flushPendingSave();
+    if (clear) this.clear();
+  }
+
+  private scheduleSave(newData: string): void {
+    this.pendingSaveData = newData;
+    if (this.saveDebounceTimer !== null) {
+      window.clearTimeout(this.saveDebounceTimer);
+    }
+    this.saveDebounceTimer = window.setTimeout(() => {
+      this.saveDebounceTimer = null;
+      // drainSaves reports errors and retains the pending edit for another try.
+      void this.performVerifiedSave().catch(() => {});
+    }, 1000);
+  }
+
+  private performVerifiedSave(): Promise<void> {
+    if (this.savePromise) return this.savePromise;
+    const file = this.file;
+    if (!file || this.pendingSaveData === null) return Promise.resolve();
+    this.savePromise = this.drainSaves(file).finally(() => {
+      this.savePromise = null;
+    });
+    return this.savePromise;
+  }
+
+  private async drainSaves(file: TFile): Promise<void> {
+    while (this.pendingSaveData !== null) {
+      const dataToWrite = this.pendingSaveData;
+      let persisted = false;
+      let failure: unknown;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          await this.app.vault.process(file, () => dataToWrite);
+          const onDisk = await this.app.vault.read(file);
+          if (onDisk !== dataToWrite) {
+            throw new Error("CSV contents did not match after saving");
+          }
+          persisted = true;
+          break;
+        } catch (error) {
+          failure = error;
+        }
+      }
+      if (!persisted) {
+        new Notice(`Tablite: Could not save ${file.path}. Your edits are still pending. Please retry before closing.`, 8000);
+        throw failure;
+      }
+      if (this.pendingSaveData === dataToWrite) this.pendingSaveData = null;
+      // Continue immediately if an edit arrived while the write was pending.
+    }
+  }
+
+  async flushPendingSave(): Promise<void> {
+    if (this.saveDebounceTimer !== null) {
+      window.clearTimeout(this.saveDebounceTimer);
+      this.saveDebounceTimer = null;
+    }
+    await this.performVerifiedSave();
   }
 
   private renderApp(): void {
@@ -98,7 +177,7 @@ export class CsvView extends TextFileView {
         },
         onDataChange: (newData: string) => {
           this.data = newData;
-          this.requestSave();
+          this.scheduleSave(newData);
         },
       }),
       this.rootEl,
