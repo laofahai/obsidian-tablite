@@ -1,4 +1,5 @@
 import jschardet from "jschardet";
+import { decodeBuffer, detectBomEncoding, normalizeEncodingId } from "./encoding";
 
 export interface DetectResult {
   encoding: string;
@@ -12,6 +13,11 @@ export type Delimiter = (typeof DELIMITERS)[number];
 const ENCODING_SAMPLE_SIZE = 4096;
 
 export function detectEncoding(buffer: ArrayBuffer): string {
+  // A byte order mark is authoritative — and worth remembering, because Excel
+  // only reads UTF-8 CSV correctly while the BOM is present.
+  const bom = detectBomEncoding(buffer);
+  if (bom) return bom;
+
   const bytes = new Uint8Array(buffer);
   // Only sample the first few KB — charset detection doesn't need the whole file
   const sampleLen = Math.min(bytes.length, ENCODING_SAMPLE_SIZE);
@@ -30,7 +36,7 @@ export function detectEncoding(buffer: ArrayBuffer): string {
     return "windows-1252";
   if (enc.includes("shift_jis") || enc.includes("shift-jis"))
     return "shift_jis";
-  return enc;
+  return normalizeEncodingId(enc);
 }
 
 export function detectDelimiter(text: string): Delimiter {
@@ -65,8 +71,7 @@ export function detectDelimiter(text: string): Delimiter {
 
 export function detect(buffer: ArrayBuffer): DetectResult {
   const encoding = detectEncoding(buffer);
-  const decoder = new TextDecoder(encoding);
-  const text = decoder.decode(buffer);
+  const text = decodeBuffer(buffer, encoding);
   const delimiter = detectDelimiter(text);
   return { encoding, delimiter };
 }

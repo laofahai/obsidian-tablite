@@ -7,10 +7,16 @@ export interface ColumnConfig {
 
 export interface TablitePluginData {
   files: Record<string, ColumnConfig>;
+  /** Encoding id per file path, so reopening a file keeps the chosen encoding. */
+  encodings: Record<string, string>;
+  /** Encoding used for files created through the plugin. */
+  defaultEncoding: string;
 }
 
 export const DEFAULT_PLUGIN_DATA: TablitePluginData = {
   files: {},
+  encodings: {},
+  defaultEncoding: "utf-8",
 };
 
 export function createDefaultColumnConfig(columnCount: number): ColumnConfig {

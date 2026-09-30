@@ -3,6 +3,7 @@ import {
   Modal,
   Notice,
   Plugin,
+  PluginSettingTab,
   Setting,
   TAbstractFile,
   TFile,
@@ -10,6 +11,7 @@ import {
   normalizePath,
 } from "obsidian";
 import { CsvView, CSV_VIEW_TYPE } from "./csv-view";
+import { ENCODING_OPTIONS, encodeText, normalizeEncodingId } from "./parser/encoding";
 import {
   DEFAULT_PLUGIN_DATA,
   normalizeColumnConfig,
@@ -76,8 +78,38 @@ class NewCsvModal extends Modal {
   }
 }
 
+class TabliteSettingTab extends PluginSettingTab {
+  private plugin: TablitePlugin;
+
+  constructor(plugin: TablitePlugin) {
+    super(plugin.app, plugin);
+    this.plugin = plugin;
+  }
+
+  display(): void {
+    const { containerEl } = this;
+    containerEl.empty();
+
+    new Setting(containerEl)
+      .setName("Default encoding for new CSV files")
+      .setDesc(
+        "Used when Tablite creates a CSV file. Choose GBK for Excel on Chinese Windows, or UTF-8 with BOM so Excel recognises UTF-8 files.",
+      )
+      .addDropdown((dropdown) => {
+        for (const option of ENCODING_OPTIONS) {
+          dropdown.addOption(option.value, option.label);
+        }
+        dropdown.setValue(normalizeEncodingId(this.plugin.settings.defaultEncoding));
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.defaultEncoding = normalizeEncodingId(value);
+          await this.plugin.saveSettings();
+        });
+      });
+  }
+}
+
 export default class TablitePlugin extends Plugin {
-  private settings: TablitePluginData = DEFAULT_PLUGIN_DATA;
+  settings: TablitePluginData = DEFAULT_PLUGIN_DATA;
 
   async onload() {
     await this.loadSettings();
@@ -85,6 +117,7 @@ export default class TablitePlugin extends Plugin {
 
     this.registerView(CSV_VIEW_TYPE, (leaf) => new CsvView(leaf, this));
     this.registerExtensions(["csv", "tsv"], CSV_VIEW_TYPE);
+    this.addSettingTab(new TabliteSettingTab(this));
     this.addCommand({
       id: "create-new-csv",
       name: "Create new CSV file",
@@ -97,9 +130,16 @@ export default class TablitePlugin extends Plugin {
       this.app.vault.on("delete", async (file) => {
         if (!(file instanceof TFile)) return;
         if (!(file.extension === "csv" || file.extension === "tsv")) return;
-        if (!this.settings.files[file.path]) return;
-        delete this.settings.files[file.path];
-        await this.saveSettings();
+        let changed = false;
+        if (this.settings.files[file.path]) {
+          delete this.settings.files[file.path];
+          changed = true;
+        }
+        if (this.settings.encodings[file.path]) {
+          delete this.settings.encodings[file.path];
+          changed = true;
+        }
+        if (changed) await this.saveSettings();
       }),
     );
 
@@ -107,11 +147,20 @@ export default class TablitePlugin extends Plugin {
       this.app.vault.on("rename", async (file, oldPath) => {
         if (!(file instanceof TFile)) return;
         if (!(file.extension === "csv" || file.extension === "tsv")) return;
+        let changed = false;
         const config = this.settings.files[oldPath];
-        if (!config) return;
-        this.settings.files[file.path] = config;
-        delete this.settings.files[oldPath];
-        await this.saveSettings();
+        if (config) {
+          this.settings.files[file.path] = config;
+          delete this.settings.files[oldPath];
+          changed = true;
+        }
+        const encoding = this.settings.encodings[oldPath];
+        if (encoding) {
+          this.settings.encodings[file.path] = encoding;
+          delete this.settings.encodings[oldPath];
+          changed = true;
+        }
+        if (changed) await this.saveSettings();
       }),
     );
 
@@ -142,6 +191,19 @@ export default class TablitePlugin extends Plugin {
     await this.saveSettings();
   }
 
+  /** Encoding this file is read and written with, if the user chose one. */
+  getFileEncoding(filePath: string): string | undefined {
+    const stored = this.settings.encodings[filePath];
+    return stored ? normalizeEncodingId(stored) : undefined;
+  }
+
+  async setFileEncoding(filePath: string, encoding: string): Promise<void> {
+    const normalized = normalizeEncodingId(encoding);
+    if (this.settings.encodings[filePath] === normalized) return;
+    this.settings.encodings[filePath] = normalized;
+    await this.saveSettings();
+  }
+
   private async loadSettings(): Promise<void> {
     const loaded = await this.loadData();
     this.settings = {
@@ -151,10 +213,15 @@ export default class TablitePlugin extends Plugin {
         ...DEFAULT_PLUGIN_DATA.files,
         ...(loaded?.files ?? {}),
       },
+      encodings: {
+        ...DEFAULT_PLUGIN_DATA.encodings,
+        ...(loaded?.encodings ?? {}),
+      },
+      defaultEncoding: normalizeEncodingId(loaded?.defaultEncoding),
     };
   }
 
-  private async saveSettings(): Promise<void> {
+  async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
   }
 
@@ -164,6 +231,12 @@ export default class TablitePlugin extends Plugin {
       const file = this.app.vault.getAbstractFileByPath(filePath);
       if (file) continue;
       delete this.settings.files[filePath];
+      changed = true;
+    }
+    for (const filePath of Object.keys(this.settings.encodings)) {
+      const file = this.app.vault.getAbstractFileByPath(filePath);
+      if (file) continue;
+      delete this.settings.encodings[filePath];
       changed = true;
     }
     if (changed) {
@@ -197,7 +270,9 @@ export default class TablitePlugin extends Plugin {
         return;
       }
 
-      const file = await this.app.vault.create(filePath, "Column 1\n");
+      const encoding = normalizeEncodingId(this.settings.defaultEncoding);
+      await this.setFileEncoding(filePath, encoding);
+      const file = await this.app.vault.createBinary(filePath, encodeText("Column 1\n", encoding));
       await this.app.workspace.getLeaf(true).openFile(file);
       new Notice(`Created ${file.name}`);
       modal.close();
