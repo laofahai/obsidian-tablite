@@ -468,7 +468,7 @@ export function App({
         loadProgress={progress}
         onDelimiterChange={handleDelimiterChange}
         onEncodingChange={handleEncodingChange}
-        onReloadEncoding={onReloadEncoding}
+        onReloadEncoding={() => { void onReloadEncoding(); }}
         onHasHeaderChange={handleHasHeaderChange}
         onCrossHighlightChange={setCrossHighlight}
         onSearch={setSearchQuery}

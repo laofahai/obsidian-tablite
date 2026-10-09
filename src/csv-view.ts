@@ -16,16 +16,24 @@ function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
   return true;
 }
 
+interface SaveRequest {
+  text: string;
+  encoding: string;
+  revision: number;
+}
+
 export class CsvView extends TextFileView {
   private rootEl: HTMLDivElement | null = null;
   private plugin: TablitePlugin;
   private encoding = UTF8;
   private rawBuffer: ArrayBuffer | null = null;
   private renderRevision = 0;
+  private stateRevision = 0;
+  private refreshRevision = 0;
 
   // A single queue owns autosave, explicit save, and file unload.
   private saveDebounceTimer: number | null = null;
-  private pendingSaveData: string | null = null;
+  private pendingSave: SaveRequest | null = null;
   private savePromise: Promise<void> | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: TablitePlugin) {
@@ -34,6 +42,7 @@ export class CsvView extends TextFileView {
   }
 
   async onLoadFile(file: TFile): Promise<void> {
+    this.stateRevision += 1;
     try {
       const buffer = await this.app.vault.readBinary(file);
       // A remembered choice beats detection: detection can change when the
@@ -77,18 +86,20 @@ export class CsvView extends TextFileView {
     if (!clear) {
       // Vault notifications from our own write must not remount the editor and
       // replace an edit that arrived while that write was in flight.
-      if (this.pendingSaveData !== null || this.savePromise) return;
+      if (this.pendingSave !== null || this.savePromise) return;
       // Obsidian hands external changes over as a UTF-8 string. Re-reading the
       // bytes keeps a legacy-encoded file readable instead of showing mojibake.
       void this.refreshFromDisk(data);
       return;
     }
+    this.stateRevision += 1;
     this.data = data;
     this.renderRevision += 1;
     this.renderApp();
   }
 
   clear(): void {
+    this.stateRevision += 1;
     this.data = "";
   }
 
@@ -98,6 +109,7 @@ export class CsvView extends TextFileView {
 
   async onClose(): Promise<void> {
     await this.flushPendingSave();
+    this.stateRevision += 1;
     if (this.rootEl) {
       render(null, this.rootEl);
       this.rootEl = null;
@@ -112,7 +124,11 @@ export class CsvView extends TextFileView {
   }
 
   private scheduleSave(newData: string): void {
-    this.pendingSaveData = newData;
+    this.pendingSave = {
+      text: newData,
+      encoding: this.encoding,
+      revision: ++this.stateRevision,
+    };
     if (this.saveDebounceTimer !== null) {
       window.clearTimeout(this.saveDebounceTimer);
     }
@@ -126,7 +142,7 @@ export class CsvView extends TextFileView {
   private performVerifiedSave(): Promise<void> {
     if (this.savePromise) return this.savePromise;
     const file = this.file;
-    if (!file || this.pendingSaveData === null) return Promise.resolve();
+    if (!file || this.pendingSave === null) return Promise.resolve();
     this.savePromise = this.drainSaves(file).finally(() => {
       this.savePromise = null;
     });
@@ -134,20 +150,29 @@ export class CsvView extends TextFileView {
   }
 
   private async drainSaves(file: TFile): Promise<void> {
-    while (this.pendingSaveData !== null) {
-      const dataToWrite = this.pendingSaveData;
+    while (this.pendingSave !== null) {
+      const request = this.pendingSave;
       // Encode with the file's own encoding: writing UTF-8 into a GBK file is
       // what turns Chinese text into mojibake in Excel.
-      const bytes = new Uint8Array(encodeText(dataToWrite, this.encoding));
+      let buffer: ArrayBuffer;
+      try {
+        buffer = encodeText(request.text, request.encoding);
+      } catch (error) {
+        new Notice(`Tablite: Could not encode ${file.path} as ${request.encoding}. Your edits are still pending.`, 8000);
+        throw error;
+      }
+      const bytes = new Uint8Array(buffer);
       let persisted = false;
       let failure: unknown;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          await this.app.vault.modifyBinary(file, bytes.buffer as ArrayBuffer);
+          await this.app.vault.modifyBinary(file, buffer);
           const onDisk = new Uint8Array(await this.app.vault.readBinary(file));
           if (!bytesEqual(onDisk, bytes)) {
             throw new Error("CSV contents did not match after saving");
           }
+          // Remember only an encoding whose bytes have actually reached disk.
+          await this.plugin.setFileEncoding(file.path, request.encoding);
           persisted = true;
           break;
         } catch (error) {
@@ -158,7 +183,7 @@ export class CsvView extends TextFileView {
         new Notice(`Tablite: Could not save ${file.path}. Your edits are still pending. Please retry before closing.`, 8000);
         throw failure;
       }
-      if (this.pendingSaveData === dataToWrite) this.pendingSaveData = null;
+      if (this.pendingSave?.revision === request.revision) this.pendingSave = null;
       // Continue immediately if an edit arrived while the write was pending.
     }
   }
@@ -173,7 +198,7 @@ export class CsvView extends TextFileView {
 
   /** Text as it stands, including edits that have not reached disk yet. */
   private currentText(): string {
-    return this.pendingSaveData ?? this.data ?? "";
+    return this.pendingSave?.text ?? this.data ?? "";
   }
 
   /**
@@ -186,11 +211,18 @@ export class CsvView extends TextFileView {
       this.setViewData(reported, true);
       return;
     }
+    const revision = this.stateRevision;
+    const refresh = ++this.refreshRevision;
+    const encoding = this.encoding;
     try {
       const buffer = await this.app.vault.readBinary(file);
+      // An edit may have arrived and even finished saving during the read.
+      if (this.file !== file || this.stateRevision !== revision ||
+          this.refreshRevision !== refresh || this.pendingSave !== null || this.savePromise) return;
       this.rawBuffer = buffer;
-      const text = decodeBuffer(buffer, this.encoding);
+      const text = decodeBuffer(buffer, encoding);
       if (text === this.data) return; // the echo of our own write
+      this.stateRevision += 1;
       this.data = text;
       this.renderRevision += 1;
       this.renderApp();
@@ -206,24 +238,29 @@ export class CsvView extends TextFileView {
    */
   private async transcode(nextEncoding: string): Promise<void> {
     const encoding = normalizeEncodingId(nextEncoding);
+    const file = this.file;
     this.encoding = encoding;
-    if (this.file) await this.plugin.setFileEncoding(this.file.path, encoding);
+    this.stateRevision += 1;
 
     const text = this.currentText();
     if (text.includes("\uFFFD")) {
+      if (file) await this.plugin.setFileEncoding(file.path, encoding);
       new Notice(
         `Tablite: the text shown has undecodable characters, so it was not written back as ${encoding}. Use "Re-read with this encoding" first if the content looks wrong.`,
         10000,
       );
       return;
     }
-    if (!this.file) return;
+    if (!file) return;
     try {
       // Write immediately: a change that only lives in the settings is what made
       // "UTF-8 with BOM" appear selected while the file stayed UTF-8.
       this.scheduleSave(text);
+      const revision = this.stateRevision;
       await this.flushPendingSave();
-      new Notice(`Tablite: ${this.file.basename} saved as ${ENCODING_LABELS[encoding] ?? encoding}`);
+      if (this.file === file && this.stateRevision === revision) {
+        new Notice(`Tablite: ${file.basename} saved as ${ENCODING_LABELS[encoding] ?? encoding}`);
+      }
     } catch {
       // drainSaves has already reported the failure and kept the edit pending.
     }
@@ -233,17 +270,26 @@ export class CsvView extends TextFileView {
   private async reloadWithSelectedEncoding(): Promise<void> {
     const file = this.file;
     if (!file) return;
+    const encoding = this.encoding;
+    const revision = ++this.stateRevision;
+    const refresh = ++this.refreshRevision;
     if (this.saveDebounceTimer !== null) {
       window.clearTimeout(this.saveDebounceTimer);
       this.saveDebounceTimer = null;
     }
     // Unsaved edits came from the old interpretation, so they cannot survive.
-    this.pendingSaveData = null;
+    this.pendingSave = null;
     try {
+      // An already-started write cannot be cancelled. Read only after it settles.
+      await this.savePromise;
+      if (this.file !== file || this.stateRevision !== revision || this.refreshRevision !== refresh) return;
       const buffer = await this.app.vault.readBinary(file);
+      if (this.file !== file || this.stateRevision !== revision || this.refreshRevision !== refresh) return;
+      await this.plugin.setFileEncoding(file.path, encoding);
+      if (this.file !== file || this.stateRevision !== revision || this.refreshRevision !== refresh) return;
       this.rawBuffer = buffer;
-      this.data = decodeBuffer(buffer, this.encoding);
-      await this.plugin.setFileEncoding(file.path, this.encoding);
+      this.data = decodeBuffer(buffer, encoding);
+      this.stateRevision += 1;
       this.renderRevision += 1;
       this.renderApp();
       if (this.data.includes("\uFFFD")) {
