@@ -53,6 +53,10 @@ Search for **Tablite** in Obsidian Settings → Community Plugins → Browse.
 
 Open any `.csv` or `.tsv` file in your vault — Tablite automatically opens it as an editable table.
 
+Set the default encoding for new files in Settings → Tablite. On Obsidian 1.13+
+this option also appears in global settings search. Older versions retain the
+settings page; the minimum supported Obsidian version is 1.5.0.
+
 | Action | How |
 |---|---|
 | Edit a cell | Double-click |
@@ -81,10 +85,19 @@ Open any `.csv` or `.tsv` file in your vault — Tablite automatically opens it 
 ```bash
 git clone https://github.com/laofahai/obsidian-tablite.git
 cd obsidian-tablite
-npm install
+npm ci
 npm run dev    # watch mode
+npm run lint   # official Obsidian rules; zero warnings required
+npx tsc --noEmit
+npm test
 npm run build  # production build
 ```
+
+See [AGENTS.md](AGENTS.md) for repository development rules and
+[CONTRIBUTING.md](CONTRIBUTING.md) for validation and release follow-up steps.
+After publishing, maintainers must trigger **Check for new releases** in the
+Obsidian Community plugin dashboard and wait for the scan of the new version to
+complete before reporting the [scorecard](https://community.obsidian.md/plugins/tablite#scorecard) result.
 
 ## Privacy and permissions
 
