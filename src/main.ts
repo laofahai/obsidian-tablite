@@ -5,6 +5,7 @@ import {
   Plugin,
   PluginSettingTab,
   Setting,
+  type SettingDefinitionItem,
   TAbstractFile,
   TFile,
   TFolder,
@@ -79,7 +80,7 @@ class NewCsvModal extends Modal {
   }
 }
 
-class TabliteSettingTab extends PluginSettingTab {
+export class TabliteSettingTab extends PluginSettingTab {
   private plugin: TablitePlugin;
 
   constructor(plugin: TablitePlugin) {
@@ -87,18 +88,32 @@ class TabliteSettingTab extends PluginSettingTab {
     this.plugin = plugin;
   }
 
+  // Obsidian 1.13+ uses these definitions for rendering and settings search.
+  getSettingDefinitions() {
+    return [{
+      name: "Default encoding for new CSV files",
+      desc: "Encoding used for new files. Choose the format expected by your spreadsheet application.",
+      control: {
+        type: "dropdown" as const,
+        key: "defaultEncoding" as const,
+        defaultValue: "utf-8",
+        options: Object.fromEntries(ENCODING_OPTIONS.map(({ value, label }) => [value, label])),
+      },
+    }] satisfies SettingDefinitionItem<"defaultEncoding">[];
+  }
+
+  // Older hosts still call display(); share the definition to prevent drift.
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
+    const definition = this.getSettingDefinitions()[0];
 
     new Setting(containerEl)
-      .setName("Default encoding for new CSV files")
-      .setDesc(
-        "Encoding used for new files. Choose the format expected by your spreadsheet application.",
-      )
+      .setName(definition.name)
+      .setDesc(definition.desc)
       .addDropdown((dropdown) => {
-        for (const option of ENCODING_OPTIONS) {
-          dropdown.addOption(option.value, option.label);
+        for (const [value, label] of Object.entries(definition.control.options)) {
+          dropdown.addOption(value, label);
         }
         dropdown.setValue(normalizeEncodingId(this.plugin.settings.defaultEncoding));
         dropdown.onChange(async (value) => {
