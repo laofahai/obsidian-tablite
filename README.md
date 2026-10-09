@@ -85,6 +85,16 @@ npm run dev    # watch mode
 npm run build  # production build
 ```
 
+## Privacy and permissions
+
+Tablite reads and writes the CSV/TSV files you open through Obsidian's vault API.
+The Copy action writes selected cells to the system clipboard. Tablite does not
+read the clipboard or upload table contents. Its bundled CSV parser includes a
+network-download implementation, but Tablite passes local text to the parser and
+does not enable that feature. Clicking a link in a cell opens its destination.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development checks and release details.
+
 ## License
 
 MIT

@@ -13,6 +13,39 @@ export const DEFAULT_PLUGIN_DATA: TablitePluginData = {
   files: {},
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Persisted settings are untrusted JSON, including data from older versions. */
+export function parsePluginData(value: unknown): TablitePluginData {
+  if (!isRecord(value) || !isRecord(value.files)) return { files: {} };
+  const files: Array<[string, ColumnConfig]> = [];
+  const indices = (items: unknown): number[] => Array.isArray(items)
+    ? items.filter((item: unknown): item is number =>
+      typeof item === "number" && Number.isInteger(item) && item >= 0)
+    : [];
+  for (const [path, config] of Object.entries(value.files)) {
+    if (!isRecord(config)) continue;
+    const sizing: Record<string, number> = {};
+    if (isRecord(config.sizing)) {
+      for (const [key, width] of Object.entries(config.sizing)) {
+        if (typeof width === "number" && Number.isFinite(width) && width >= 0) {
+          sizing[key] = width;
+        }
+      }
+    }
+    files.push([path, {
+      order: indices(config.order),
+      hidden: indices(config.hidden),
+      sizing,
+      frozenCount: typeof config.frozenCount === "number" && Number.isFinite(config.frozenCount)
+        ? Math.max(0, Math.floor(config.frozenCount)) : 0,
+    }]);
+  }
+  return { files: Object.fromEntries(files) };
+}
+
 export function createDefaultColumnConfig(columnCount: number): ColumnConfig {
   return {
     order: Array.from({ length: columnCount }, (_, index) => index),

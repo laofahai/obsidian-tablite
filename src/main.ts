@@ -13,6 +13,7 @@ import { CsvView, CSV_VIEW_TYPE } from "./csv-view";
 import {
   DEFAULT_PLUGIN_DATA,
   normalizeColumnConfig,
+  parsePluginData,
   type ColumnConfig,
   type TablitePluginData,
 } from "./types";
@@ -143,15 +144,8 @@ export default class TablitePlugin extends Plugin {
   }
 
   private async loadSettings(): Promise<void> {
-    const loaded = await this.loadData();
-    this.settings = {
-      ...DEFAULT_PLUGIN_DATA,
-      ...(loaded ?? {}),
-      files: {
-        ...DEFAULT_PLUGIN_DATA.files,
-        ...(loaded?.files ?? {}),
-      },
-    };
+    const loaded: unknown = await this.loadData();
+    this.settings = parsePluginData(loaded);
   }
 
   private async saveSettings(): Promise<void> {

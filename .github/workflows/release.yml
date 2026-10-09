@@ -7,6 +7,9 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
+  artifact-metadata: write
 
 jobs:
   build:
@@ -18,20 +21,28 @@ jobs:
         with:
           node-version: 20
 
-      - run: npm install
+      - run: npm ci
+
+      - run: npx tsc --noEmit
+
+      - run: npm test
 
       - run: npm run build
+
+      - name: Attest release assets
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            main.js
+            styles.css
+            manifest.json
 
       - name: Package and release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           tag="${GITHUB_REF#refs/tags/}"
-          mkdir -p tablite
-          cp main.js styles.css manifest.json tablite/
-          zip -r tablite-${tag}.zip tablite/
           gh release create "$tag" \
             --title "Tablite ${tag}" \
             --generate-notes \
-            tablite-${tag}.zip \
             main.js styles.css manifest.json
