@@ -15,6 +15,7 @@ import { ENCODING_OPTIONS, encodeText, normalizeEncodingId } from "./parser/enco
 import {
   DEFAULT_PLUGIN_DATA,
   normalizeColumnConfig,
+  parsePluginData,
   type ColumnConfig,
   type TablitePluginData,
 } from "./types";
@@ -93,7 +94,7 @@ class TabliteSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Default encoding for new CSV files")
       .setDesc(
-        "Used when Tablite creates a CSV file. Choose GBK for Excel on Chinese Windows, or UTF-8 with BOM so Excel recognises UTF-8 files.",
+        "Encoding used for new files. Choose the format expected by your spreadsheet application.",
       )
       .addDropdown((dropdown) => {
         for (const option of ENCODING_OPTIONS) {
@@ -205,20 +206,8 @@ export default class TablitePlugin extends Plugin {
   }
 
   private async loadSettings(): Promise<void> {
-    const loaded = await this.loadData();
-    this.settings = {
-      ...DEFAULT_PLUGIN_DATA,
-      ...(loaded ?? {}),
-      files: {
-        ...DEFAULT_PLUGIN_DATA.files,
-        ...(loaded?.files ?? {}),
-      },
-      encodings: {
-        ...DEFAULT_PLUGIN_DATA.encodings,
-        ...(loaded?.encodings ?? {}),
-      },
-      defaultEncoding: normalizeEncodingId(loaded?.defaultEncoding),
-    };
+    const loaded: unknown = await this.loadData();
+    this.settings = parsePluginData(loaded);
   }
 
   async saveSettings(): Promise<void> {

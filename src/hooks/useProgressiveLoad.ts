@@ -49,13 +49,13 @@ export function useProgressiveLoad(totalRows: number): ProgressiveLoadState {
 
     // Use requestIdleCallback where available, fall back to setTimeout
     const schedule =
-      typeof requestIdleCallback === "function"
-        ? requestIdleCallback
-        : (cb: () => void) => setTimeout(cb, 16) as unknown as number;
+      typeof window.requestIdleCallback === "function"
+        ? window.requestIdleCallback.bind(window)
+        : (cb: () => void) => window.setTimeout(cb, 16);
     const cancel =
-      typeof cancelIdleCallback === "function"
-        ? cancelIdleCallback
-        : (id: number) => clearTimeout(id);
+      typeof window.cancelIdleCallback === "function"
+        ? window.cancelIdleCallback.bind(window)
+        : (id: number) => window.clearTimeout(id);
 
     const id = schedule(() => {
       setVisibleCount((prev) => Math.min(prev + CHUNK_SIZE, totalRows));

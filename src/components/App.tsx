@@ -105,11 +105,11 @@ function ensureEditableState(state: TableState): TableState {
     state.data.length > 0
       ? state.data.map((row) => {
           if (row.length < headers.length) {
-            return [...row, ...new Array(headers.length - row.length).fill("")];
+            return [...row, ...new Array<string>(headers.length - row.length).fill("")];
           }
           return row.slice(0, headers.length);
         })
-      : [new Array(headers.length).fill("")];
+      : [new Array<string>(headers.length).fill("")];
 
   return { headers, data };
 }

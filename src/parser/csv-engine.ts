@@ -186,7 +186,7 @@ export function parseCSV(
     const colCount = headers.length;
     const normalized = rows.map((row) => {
       if (row.length < colCount) {
-        return [...row, ...new Array(colCount - row.length).fill("")];
+        return [...row, ...new Array<string>(colCount - row.length).fill("")];
       }
       return row.slice(0, colCount);
     });
@@ -197,7 +197,7 @@ export function parseCSV(
     const headers = generateColumnLabels(colCount);
     const normalized = rawData.map((row) => {
       if (row.length < colCount) {
-        return [...row, ...new Array(colCount - row.length).fill("")];
+        return [...row, ...new Array<string>(colCount - row.length).fill("")];
       }
       return row.slice(0, colCount);
     });

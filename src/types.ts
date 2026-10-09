@@ -1,3 +1,5 @@
+import { normalizeEncodingId } from "./parser/encoding";
+
 export interface ColumnConfig {
   order: number[];
   hidden: number[];
@@ -18,6 +20,50 @@ export const DEFAULT_PLUGIN_DATA: TablitePluginData = {
   encodings: {},
   defaultEncoding: "utf-8",
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Persisted settings are untrusted JSON, including data from older versions. */
+export function parsePluginData(value: unknown): TablitePluginData {
+  const stored = isRecord(value) ? value : {};
+  const storedFiles = isRecord(stored.files) ? stored.files : {};
+  const files: Array<[string, ColumnConfig]> = [];
+  const indices = (items: unknown): number[] => Array.isArray(items)
+    ? items.filter((item: unknown): item is number =>
+      typeof item === "number" && Number.isInteger(item) && item >= 0)
+    : [];
+  for (const [path, config] of Object.entries(storedFiles)) {
+    if (!isRecord(config)) continue;
+    const sizing: Record<string, number> = {};
+    if (isRecord(config.sizing)) {
+      for (const [key, width] of Object.entries(config.sizing)) {
+        if (typeof width === "number" && Number.isFinite(width) && width >= 0) {
+          sizing[key] = width;
+        }
+      }
+    }
+    files.push([path, {
+      order: indices(config.order),
+      hidden: indices(config.hidden),
+      sizing,
+      frozenCount: typeof config.frozenCount === "number" && Number.isFinite(config.frozenCount)
+        ? Math.max(0, Math.floor(config.frozenCount)) : 0,
+    }]);
+  }
+  const encodings: Array<[string, string]> = [];
+  if (isRecord(stored.encodings)) {
+    for (const [path, encoding] of Object.entries(stored.encodings)) {
+      if (typeof encoding === "string") encodings.push([path, normalizeEncodingId(encoding)]);
+    }
+  }
+  return {
+    files: Object.fromEntries(files),
+    encodings: Object.fromEntries(encodings),
+    defaultEncoding: normalizeEncodingId(stored.defaultEncoding),
+  };
+}
 
 export function createDefaultColumnConfig(columnCount: number): ColumnConfig {
   return {
