@@ -53,6 +53,9 @@
 
 在库中打开任意 `.csv` 或 `.tsv` 文件，Tablite 会自动以可编辑表格打开。
 
+在「设置 → Tablite」中设置新建文件的默认编码。Obsidian 1.13+ 也可通过全局设置搜索
+找到该选项；旧版本继续使用原设置页，最低支持 Obsidian 1.5.0。
+
 | 操作 | 方式 |
 |---|---|
 | 编辑单元格 | 双击 |
@@ -81,10 +84,25 @@
 ```bash
 git clone https://github.com/laofahai/obsidian-tablite.git
 cd obsidian-tablite
-npm install
+npm ci
 npm run dev    # 开发模式
+npm run lint   # 官方 Obsidian 规则，要求零警告
+npx tsc --noEmit
+npm test
 npm run build  # 生产构建
 ```
+
+仓库开发规则见 [AGENTS.md](AGENTS.md)，验证及发布跟进步骤见
+[CONTRIBUTING.md](CONTRIBUTING.md)。发布后，维护者需在 Obsidian Community 插件后台
+点击 **Check for new releases**，等新版本扫描完成后再报告
+[评分卡](https://community.obsidian.md/plugins/tablite#scorecard)结果。
+
+## 隐私与权限
+
+Tablite 通过 Obsidian Vault API 读写你打开的 CSV/TSV 文件。复制操作会把选中单元格
+写入系统剪贴板；插件不读取剪贴板，也不上传表格内容。内置 CSV 解析库包含网络下载
+实现，但 Tablite 只向解析器传入本地文本，未启用下载功能。点击单元格中的链接会打开
+对应地址。
 
 ## 许可
 
