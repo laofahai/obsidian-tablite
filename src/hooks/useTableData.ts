@@ -76,7 +76,7 @@ export function useTableData(
     (afterIndex: number) => {
       pushHistory();
       setData((prev) => {
-        const newRow = new Array(headers.length).fill("");
+        const newRow = new Array<string>(headers.length).fill("");
         const next = [...prev];
         next.splice(afterIndex + 1, 0, newRow);
         setHeaders((hh) => {
@@ -96,7 +96,7 @@ export function useTableData(
         const filtered = prev.filter((_, i) => i !== index);
         const next = filtered.length > 0
           ? filtered
-          : [new Array(Math.max(1, headers.length)).fill("")];
+          : [new Array<string>(Math.max(1, headers.length)).fill("")];
         setHeaders((hh) => {
           notify(hh, next);
           return hh;

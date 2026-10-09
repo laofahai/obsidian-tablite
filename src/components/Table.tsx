@@ -455,8 +455,7 @@ export function Table({
   const onContextMenu = useCallback(
     (event: MouseEvent, rowIndex: number, colIndex: number) => {
       event.preventDefault();
-      const menu = document.createElement("div");
-      menu.className = "tablite-context-menu";
+      const menu = createDiv({ cls: "tablite-context-menu" });
       const menuItems: Array<{ action: string; label: string } | "hr"> = [
         { action: "copy", label: "Copy" },
         "hr",
@@ -470,13 +469,11 @@ export function Table({
       ];
       for (const item of menuItems) {
         if (item === "hr") {
-          menu.appendChild(document.createElement("hr"));
+          menu.createEl("hr");
         } else {
-          const div = document.createElement("div");
-          div.className = "tablite-menu-item";
+          const div = menu.createDiv({ cls: "tablite-menu-item" });
           div.dataset.action = item.action;
           div.textContent = item.label;
-          menu.appendChild(div);
         }
       }
       menu.style.setProperty("--tablite-menu-left", `${event.clientX}px`);
@@ -517,7 +514,7 @@ export function Table({
         menu.remove();
         document.removeEventListener("click", removeMenu);
       };
-      requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
         document.addEventListener("click", removeMenu);
       });
     },
@@ -626,8 +623,8 @@ export function Table({
                         userSelect: "none",
                         ...getPinnedStyles(cell.column.id, position, false),
                       }}
-                      onMouseDown={(event) => handleCellMouseDown(event as unknown as MouseEvent, row.index, colIdx)}
-                      onContextMenu={(event) => onContextMenu(event as unknown as MouseEvent, row.index, colIdx)}
+                      onMouseDown={(event) => handleCellMouseDown(event, row.index, colIdx)}
+                      onContextMenu={(event) => onContextMenu(event, row.index, colIdx)}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>

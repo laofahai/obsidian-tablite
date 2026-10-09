@@ -51,10 +51,10 @@ export function HeaderCell({
 
   const sortDir = column.getIsSorted();
   const sortIndicator = sortDir === "asc" ? " ▲" : sortDir === "desc" ? " ▼" : "";
-  const meta = (column.columnDef.meta as {
+  const meta: {
     dataType?: string;
     filterVariant?: "text" | "select" | "numberRange" | "dateRange";
-  } | undefined) ?? { dataType: "string", filterVariant: "text" };
+  } = column.columnDef.meta ?? { dataType: "string", filterVariant: "text" };
   const dataType = String(meta.dataType ?? "string");
 
   const onMouseDown = useCallback(

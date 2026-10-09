@@ -21,7 +21,8 @@ A fast, feature-rich CSV/TSV editor for [Obsidian](https://obsidian.md). Edit ta
 - **Global search** — search across all cells with highlight and navigation
 - **Auto delimiter detection** — comma, semicolon, tab, pipe
 - **Excel export compatibility** — auto-trims trailing empty columns from bloated spreadsheet exports
-- **Auto encoding detection** — UTF-8, GBK, Windows-1252, Shift-JIS
+- **Auto encoding detection** — UTF-8 (with or without BOM), GBK, Windows-1252, Shift-JIS, UTF-16
+- **Encoding preserved on save** — edits are written back in the file's own encoding (a GBK file stays GBK, so Excel keeps reading it). Picking an encoding in the toolbar converts the file straight away while leaving the displayed text untouched; the ↻ button next to it re-reads the file with the chosen encoding when the charset was detected wrongly. New files use the default from Settings → Tablite.
 - **Header detection** — auto-detects whether first row is a header, with manual toggle
 - **Column management** — hide/show, reorder via drag & drop, freeze columns
 - **Column resizing** — drag column borders to resize
@@ -84,6 +85,16 @@ npm install
 npm run dev    # watch mode
 npm run build  # production build
 ```
+
+## Privacy and permissions
+
+Tablite reads and writes the CSV/TSV files you open through Obsidian's vault API.
+The Copy action writes selected cells to the system clipboard. Tablite does not
+read the clipboard or upload table contents. Its bundled CSV parser includes a
+network-download implementation, but Tablite passes local text to the parser and
+does not enable that feature. Clicking a link in a cell opens its destination.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development checks and release details.
 
 ## License
 

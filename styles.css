@@ -1,4 +1,6 @@
 /* Tablite - Obsidian CSV Editor */
+/* Scope controls to both plugin wrappers so they override host defaults without
+   forcing priority over user styles. The context menu is mounted under body. */
 
 .tablite-root {
   height: 100%;
@@ -8,7 +10,7 @@
   min-height: 0;
 }
 
-.tablite-container {
+.tablite-root .tablite-container {
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -17,7 +19,7 @@
 }
 
 /* ─── Toolbar ─── */
-.tablite-toolbar {
+.tablite-root .tablite-container .tablite-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -30,31 +32,29 @@
   overflow: visible;
 }
 
-.tablite-toolbar-left,
-.tablite-toolbar-right {
+.tablite-root .tablite-container .tablite-toolbar-left,
+.tablite-root .tablite-container .tablite-toolbar-right {
   display: flex;
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
 }
 
-.tablite-toolbar-right {
+.tablite-root .tablite-container .tablite-toolbar-right {
   flex-shrink: 1;
   min-width: 0;
 }
 
-/* 统一工具栏所有控件高度 */
-.tablite-toolbar button,
-.tablite-toolbar select,
-.tablite-toolbar input:not([type="checkbox"]),
-.tablite-toolbar label {
-  height: 24px !important;
-  box-sizing: border-box !important;
+/* Keep host control styles scoped out while allowing individual controls below
+   (such as column-option labels) to override these shared dimensions. */
+.tablite-root .tablite-container .tablite-toolbar :where(button, select, input:not([type="checkbox"]), label) {
+  height: 24px;
+  box-sizing: border-box;
 }
 
-.tablite-icon-btn {
-  padding: 0 6px !important;
-  border: none !important;
+.tablite-root .tablite-container .tablite-icon-btn {
+  padding: 0 6px;
+  border: none;
   border-radius: 3px;
   background: transparent;
   color: var(--text-muted);
@@ -63,39 +63,39 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: none !important;
+  box-shadow: none;
 }
 
-.tablite-icon-btn:hover {
+.tablite-root .tablite-container .tablite-icon-btn:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
 
-.tablite-icon-btn svg {
+.tablite-root .tablite-container .tablite-icon-btn svg {
   display: block;
 }
 
-.tablite-select {
-  padding: 0 4px !important;
-  border: none !important;
+.tablite-root .tablite-container .tablite-select {
+  padding: 0 4px;
+  border: none;
   border-radius: 3px;
   background: transparent;
   color: var(--text-muted);
   font-size: 11px;
   cursor: pointer;
-  box-shadow: none !important;
+  box-shadow: none;
 }
 
-.tablite-select:hover {
+.tablite-root .tablite-container .tablite-select:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
 
-.tablite-select:focus {
+.tablite-root .tablite-container .tablite-select:focus {
   outline: none;
 }
 
-.tablite-separator {
+.tablite-root .tablite-container .tablite-separator {
   width: 1px;
   height: 14px;
   background: var(--background-modifier-border);
@@ -103,7 +103,7 @@
   flex-shrink: 0;
 }
 
-.tablite-info {
+.tablite-root .tablite-container .tablite-info {
   font-size: 11px;
   color: var(--text-faint);
   padding: 0 4px;
@@ -111,43 +111,43 @@
   line-height: 24px;
 }
 
-.tablite-search {
-  padding: 0 6px !important;
-  border: none !important;
+.tablite-root .tablite-container .tablite-search {
+  padding: 0 6px;
+  border: none;
   border-radius: 3px;
-  background: var(--background-secondary) !important;
+  background: var(--background-secondary);
   color: var(--text-normal);
   font-size: 11px;
   width: 120px;
-  box-shadow: none !important;
+  box-shadow: none;
 }
 
-.tablite-search:focus {
-  outline: none !important;
-  background: var(--background-primary-alt) !important;
-  box-shadow: 0 0 0 1px var(--interactive-accent) !important;
+.tablite-root .tablite-container .tablite-search:focus {
+  outline: none;
+  background: var(--background-primary-alt);
+  box-shadow: 0 0 0 1px var(--interactive-accent);
 }
 
-.tablite-search::placeholder {
+.tablite-root .tablite-container .tablite-search::placeholder {
   color: var(--text-faint);
 }
 
-.tablite-search-group {
+.tablite-root .tablite-container .tablite-search-group {
   display: flex;
   align-items: center;
   gap: 2px;
   min-width: 0;
 }
 
-.tablite-search-count {
+.tablite-root .tablite-container .tablite-search-count {
   min-width: 34px;
   font-size: 10px;
   color: var(--text-faint);
   text-align: center;
 }
 
-.tablite-toggle-label {
-  display: inline-flex !important;
+.tablite-root .tablite-container .tablite-toggle-label {
+  display: inline-flex;
   align-items: center;
   gap: 4px;
   font-size: 11px;
@@ -158,19 +158,19 @@
   border-radius: 3px;
 }
 
-.tablite-toggle-label:hover {
+.tablite-root .tablite-container .tablite-toggle-label:hover {
   color: var(--text-normal);
 }
 
-.tablite-toggle-input {
+.tablite-root .tablite-container .tablite-toggle-input {
   position: absolute;
   opacity: 0;
-  width: 0 !important;
-  height: 0 !important;
+  width: 0;
+  height: 0;
   pointer-events: none;
 }
 
-.tablite-toggle-track {
+.tablite-root .tablite-container .tablite-toggle-track {
   position: relative;
   width: 24px;
   height: 14px;
@@ -180,7 +180,7 @@
   flex-shrink: 0;
 }
 
-.tablite-toggle-track::after {
+.tablite-root .tablite-container .tablite-toggle-track::after {
   content: "";
   position: absolute;
   top: 2px;
@@ -192,34 +192,34 @@
   transition: transform 0.15s ease;
 }
 
-.tablite-toggle-input:checked + .tablite-toggle-track {
+.tablite-root .tablite-container .tablite-toggle-input:checked + .tablite-toggle-track {
   background: var(--interactive-accent);
 }
 
-.tablite-toggle-input:checked + .tablite-toggle-track::after {
+.tablite-root .tablite-container .tablite-toggle-input:checked + .tablite-toggle-track::after {
   transform: translateX(10px);
 }
 
-.tablite-toggle-text {
+.tablite-root .tablite-container .tablite-toggle-text {
   display: inline-flex;
   align-items: center;
   line-height: 1;
 }
 
-.tablite-columns-panel {
+.tablite-root .tablite-container .tablite-columns-panel {
   position: relative;
 }
 
-.tablite-columns-panel > summary {
+.tablite-root .tablite-container .tablite-columns-panel > summary {
   list-style: none;
   user-select: none;
 }
 
-.tablite-columns-panel > summary::-webkit-details-marker {
+.tablite-root .tablite-container .tablite-columns-panel > summary::-webkit-details-marker {
   display: none;
 }
 
-.tablite-columns-menu {
+.tablite-root .tablite-container .tablite-columns-menu {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
@@ -234,88 +234,88 @@
   z-index: 20;
 }
 
-.tablite-column-option {
-  display: flex !important;
+.tablite-root .tablite-container .tablite-column-option {
+  display: flex;
   align-items: center;
   gap: 6px;
-  height: auto !important;
+  height: auto;
   padding: 4px 2px;
   font-size: 11px;
   color: var(--text-normal);
 }
 
-.tablite-column-option input {
+.tablite-root .tablite-container .tablite-column-option input {
   margin: 0;
 }
 
-.tablite-menu-button {
+.tablite-root .tablite-container .tablite-menu-button {
   width: 100%;
   margin-bottom: 4px;
-  padding: 4px 6px !important;
-  border: none !important;
+  padding: 4px 6px;
+  border: none;
   border-radius: 4px;
-  background: var(--background-secondary) !important;
+  background: var(--background-secondary);
   color: var(--text-normal);
   font-size: 11px;
   text-align: left;
 }
 
-.tablite-menu-button:hover {
-  background: var(--background-modifier-hover) !important;
+.tablite-root .tablite-container .tablite-menu-button:hover {
+  background: var(--background-modifier-hover);
 }
 
-.tablite-freeze-control {
-  display: inline-flex !important;
+.tablite-root .tablite-container .tablite-freeze-control {
+  display: inline-flex;
   align-items: center;
   gap: 4px;
   color: var(--text-muted);
   font-size: 11px;
 }
 
-.tablite-freeze-label {
+.tablite-root .tablite-container .tablite-freeze-label {
   line-height: 1;
 }
 
 /* ─── Table ─── */
-.tablite-table-container {
+.tablite-root .tablite-container .tablite-table-container {
   flex: 1;
-  overflow: scroll !important;
+  overflow: scroll;
   position: relative;
   min-height: 0;
 }
 
-.tablite-table-container::-webkit-scrollbar {
+.tablite-root .tablite-container .tablite-table-container::-webkit-scrollbar {
   width: 10px;
   height: 10px;
   display: block;
 }
 
-.tablite-table-container::-webkit-scrollbar-track {
+.tablite-root .tablite-container .tablite-table-container::-webkit-scrollbar-track {
   background: var(--background-secondary);
   border-radius: 5px;
 }
 
-.tablite-table-container::-webkit-scrollbar-thumb {
+.tablite-root .tablite-container .tablite-table-container::-webkit-scrollbar-thumb {
   background: var(--background-modifier-border-hover);
   border-radius: 5px;
   border: 2px solid var(--background-secondary);
 }
 
-.tablite-table-container::-webkit-scrollbar-thumb:hover {
+.tablite-root .tablite-container .tablite-table-container::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
 
-.tablite-table-container::-webkit-scrollbar-corner {
+.tablite-root .tablite-container .tablite-table-container::-webkit-scrollbar-corner {
   background: var(--background-secondary);
 }
 
-.tablite-table {
+.tablite-root .tablite-container .tablite-table {
   border-collapse: collapse;
   width: max-content;
   min-width: 100%;
 }
 
-.tablite-th {
+.tablite-root .tablite-container .tablite-th {
   background: var(--background-secondary);
   border-bottom: 2px solid var(--background-modifier-border);
   border-right: 1px solid var(--background-modifier-border);
@@ -325,7 +325,7 @@
   user-select: none;
 }
 
-.tablite-td {
+.tablite-root .tablite-container .tablite-td {
   border-bottom: 1px solid var(--background-modifier-border);
   border-right: 1px solid var(--background-modifier-border);
   padding: 0;
@@ -333,31 +333,31 @@
   background: var(--background-primary);
 }
 
-.tablite-frozen-cell {
+.tablite-root .tablite-container .tablite-frozen-cell {
   box-shadow: 1px 0 0 var(--background-modifier-border);
 }
 
 /* ─── Selection & Cross Highlight ─── */
-.tablite-td-active {
+.tablite-root .tablite-container .tablite-td-active {
   outline: 2px solid var(--interactive-accent);
   outline-offset: -2px;
-  background: color-mix(in srgb, var(--interactive-accent) 20%, transparent) !important;
+  background: color-mix(in srgb, var(--interactive-accent) 20%, transparent);
 }
 
-.tablite-td-selected {
-  background: color-mix(in srgb, var(--interactive-accent) 15%, transparent) !important;
+.tablite-root .tablite-container .tablite-td-selected {
+  background: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
 }
 
-.tablite-td-cross {
-  background: color-mix(in srgb, var(--interactive-accent) 6%, transparent) !important;
+.tablite-root .tablite-container .tablite-td-cross {
+  background: color-mix(in srgb, var(--interactive-accent) 6%, transparent);
 }
 
-.tablite-th.tablite-col-highlight {
-  background: color-mix(in srgb, var(--interactive-accent) 10%, var(--background-secondary)) !important;
+.tablite-root .tablite-container .tablite-th.tablite-col-highlight {
+  background: color-mix(in srgb, var(--interactive-accent) 10%, var(--background-secondary));
 }
 
 /* ─── Row Numbers ─── */
-.tablite-row-num {
+.tablite-root .tablite-container .tablite-row-num {
   padding: 0;
   margin: 0;
   text-align: center;
@@ -373,13 +373,13 @@
   box-sizing: border-box;
 }
 
-.tablite-td:first-child {
+.tablite-root .tablite-container .tablite-td:first-child {
   padding: 0;
   overflow: hidden;
 }
 
 /* ─── Cell ─── */
-.tablite-cell {
+.tablite-root .tablite-container .tablite-cell {
   padding: 2px 6px;
   min-height: 28px;
   display: flex;
@@ -391,48 +391,47 @@
   width: 100%;
 }
 
-.tablite-cell:hover {
+.tablite-root .tablite-container .tablite-cell:hover {
   background: var(--background-modifier-hover);
 }
 
-.tablite-cell-text {
+.tablite-root .tablite-container .tablite-cell-text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.tablite-cell-link {
+.tablite-root .tablite-container .tablite-cell-link {
   color: var(--link-external-color, var(--text-accent));
   text-decoration: underline;
-  text-decoration-color: var(--link-external-decoration-color, currentColor);
   cursor: pointer;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.tablite-cell-link:hover {
+.tablite-root .tablite-container .tablite-cell-link:hover {
   color: var(--link-external-color-hover, var(--text-accent-hover));
 }
 
-.tablite-cell-input {
+.tablite-root .tablite-container .tablite-cell-input {
   width: 100%;
   height: 100%;
   min-height: 28px;
   padding: 2px 6px;
-  border: 2px solid var(--interactive-accent) !important;
-  border-radius: 0 !important;
-  background: var(--background-primary) !important;
+  border: 2px solid var(--interactive-accent);
+  border-radius: 0;
+  background: var(--background-primary);
   color: var(--text-normal);
   font-size: inherit;
   font-family: inherit;
-  outline: none !important;
+  outline: none;
   box-sizing: border-box;
-  box-shadow: none !important;
+  box-shadow: none;
 }
 
 /* ─── Header ─── */
-.tablite-header-cell {
+.tablite-root .tablite-container .tablite-header-cell {
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -441,7 +440,7 @@
   padding: 0;
 }
 
-.tablite-header-top {
+.tablite-root .tablite-container .tablite-header-top {
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -451,7 +450,7 @@
   position: relative;
 }
 
-.tablite-header-name {
+.tablite-root .tablite-container .tablite-header-name {
   flex: 1;
   cursor: pointer;
   overflow: hidden;
@@ -460,7 +459,7 @@
   text-align: left;
 }
 
-.tablite-header-type {
+.tablite-root .tablite-container .tablite-header-type {
   flex-shrink: 0;
   font-size: 9px;
   text-transform: uppercase;
@@ -468,19 +467,19 @@
   color: var(--text-faint);
 }
 
-.tablite-header-input {
+.tablite-root .tablite-container .tablite-header-input {
   width: 100%;
   padding: 2px 4px;
-  border: 1px solid var(--interactive-accent) !important;
-  background: var(--background-primary) !important;
+  border: 1px solid var(--interactive-accent);
+  background: var(--background-primary);
   color: var(--text-normal);
   font-size: inherit;
   font-weight: 600;
-  outline: none !important;
-  box-shadow: none !important;
+  outline: none;
+  box-shadow: none;
 }
 
-.tablite-resize-handle {
+.tablite-root .tablite-container .tablite-resize-handle {
   position: absolute;
   right: 0;
   top: 0;
@@ -490,34 +489,34 @@
   user-select: none;
 }
 
-.tablite-resize-handle:hover {
+.tablite-root .tablite-container .tablite-resize-handle:hover {
   background: var(--interactive-accent);
 }
 
 /* ─── Column Filter ─── */
-.tablite-column-filter {
+.tablite-root .tablite-container .tablite-column-filter {
   width: 100%;
-  padding: 0 4px !important;
-  border: none !important;
-  border-radius: 0 !important;
-  background: transparent !important;
+  padding: 0 4px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
   color: var(--text-faint);
   font-size: 10px;
-  height: 16px !important;
+  height: 16px;
   line-height: 16px;
-  outline: none !important;
+  outline: none;
   box-sizing: border-box;
-  box-shadow: none !important;
+  box-shadow: none;
   text-align: center;
 }
 
-.tablite-column-filter-select {
+.tablite-root .tablite-container .tablite-column-filter-select {
   cursor: pointer;
   appearance: none;
 }
 
 /* ─── Range Filter ─── */
-.tablite-range-filter {
+.tablite-root .tablite-container .tablite-range-filter {
   display: flex;
   align-items: center;
   gap: 2px;
@@ -526,25 +525,25 @@
   box-sizing: border-box;
 }
 
-.tablite-range-input {
+.tablite-root .tablite-container .tablite-range-input {
   min-width: 0;
   text-align: left;
   flex: 1;
 }
 
 /* ─── Date Picker ─── */
-.tablite-date-pick {
+.tablite-root .tablite-container .tablite-date-pick {
   position: relative;
   flex: 1;
   min-width: 0;
 }
 
-.tablite-date-display {
+.tablite-root .tablite-container .tablite-date-display {
   cursor: pointer;
-  font-size: 9px !important;
+  font-size: 9px;
 }
 
-.tablite-date-picker {
+.tablite-root .tablite-container .tablite-date-picker {
   position: absolute;
   top: 0;
   left: 0;
@@ -553,26 +552,26 @@
   opacity: 0;
   overflow: hidden;
   pointer-events: none;
-  padding: 0 !important;
-  border: none !important;
+  padding: 0;
+  border: none;
 }
 
 /* ─── Multi-select Filter ─── */
-.tablite-multiselect {
+.tablite-root .tablite-container .tablite-multiselect {
   position: relative;
   width: 100%;
   padding: 0 2px 2px;
   box-sizing: border-box;
 }
 
-.tablite-multiselect-trigger {
+.tablite-root .tablite-container .tablite-multiselect-trigger {
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.tablite-multiselect-dropdown {
+.tablite-root .tablite-container .tablite-multiselect-dropdown {
   position: absolute;
   top: 100%;
   left: 0;
@@ -587,7 +586,7 @@
   padding: 2px 0;
 }
 
-.tablite-multiselect-item {
+.tablite-root .tablite-container .tablite-multiselect-item {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -598,39 +597,39 @@
   color: var(--text-normal);
 }
 
-.tablite-multiselect-item:hover {
+.tablite-root .tablite-container .tablite-multiselect-item:hover {
   background: var(--background-modifier-hover);
 }
 
-.tablite-multiselect-item input[type="checkbox"] {
+.tablite-root .tablite-container .tablite-multiselect-item input[type="checkbox"] {
   margin: 0;
   flex-shrink: 0;
 }
 
-.tablite-multiselect-clear {
+.tablite-root .tablite-container .tablite-multiselect-clear {
   color: var(--text-faint);
   border-bottom: 1px solid var(--background-modifier-border);
-  font-size: 10px !important;
+  font-size: 10px;
 }
 
-.tablite-range-sep {
+.tablite-root .tablite-container .tablite-range-sep {
   flex-shrink: 0;
   font-size: 10px;
   color: var(--text-faint);
 }
 
-.tablite-column-filter:focus {
-  background: var(--background-primary-alt) !important;
+.tablite-root .tablite-container .tablite-column-filter:focus {
+  background: var(--background-primary-alt);
   color: var(--text-normal);
 }
 
-.tablite-column-filter::placeholder {
+.tablite-root .tablite-container .tablite-column-filter::placeholder {
   color: var(--text-faint);
   font-size: 10px;
 }
 
 /* ─── Context Menu ─── */
-.tablite-context-menu {
+body > .tablite-context-menu {
   position: fixed;
   left: var(--tablite-menu-left, 0);
   top: var(--tablite-menu-top, 0);
@@ -643,24 +642,24 @@
   min-width: 180px;
 }
 
-.tablite-context-menu hr {
+body > .tablite-context-menu hr {
   margin: 4px 0;
   border: none;
   border-top: 1px solid var(--background-modifier-border);
 }
 
-.tablite-menu-item {
+body > .tablite-context-menu .tablite-menu-item {
   padding: 6px 12px;
   cursor: pointer;
   font-size: 13px;
   color: var(--text-normal);
 }
 
-.tablite-menu-item:hover {
+body > .tablite-context-menu .tablite-menu-item:hover {
   background: var(--background-modifier-hover);
 }
 
 /* ─── Search Highlight ─── */
-.tablite-cell-match {
-  background: var(--text-highlight-bg) !important;
+.tablite-root .tablite-container .tablite-cell.tablite-cell-match {
+  background: var(--text-highlight-bg);
 }

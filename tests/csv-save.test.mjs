@@ -22,94 +22,108 @@ const bundle = await build({
 });
 const { CsvView } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text + "\n//# sourceURL=csv-view-test-bundle.mjs").toString("base64")}`);
 const tick = () => new Promise(resolve => setImmediate(resolve));
+const utf8 = text => new TextEncoder().encode(text);
+const bytesOf = (...parts) => Uint8Array.from(parts.flatMap(part => typeof part === "string" ? [...Buffer.from(part, "ascii")] : part));
 function deferred() { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; }
-function setup(t, initial = 'Titre;Commentaire\r\nLivre;\r\n') {
+async function setup(t, { text = "Titre;Commentaire\r\nLivre;\r\n", bytes, encoding = "utf-8" } = {}) {
   const timers = new Map(); let id = 0;
   globalThis.window = { setTimeout(fn) { timers.set(++id, fn); return id; }, clearTimeout(id) { timers.delete(id); } };
   globalThis.notices = [];
-  const files = new Map([["a.csv", initial], ["b.csv", "other file"]]);
+  const files = new Map([["a.csv", bytes ? Uint8Array.from(bytes) : utf8(text)], ["b.csv", utf8("other file")]]);
+  const savedEncodings = [];
   const vault = {
-    async process(file, fn) { const next = fn(files.get(file.path)); files.set(file.path, next); return next; },
-    async read(file) { return files.get(file.path); },
+    async readBinary(file) { const bytes = files.get(file.path); return bytes.slice().buffer; },
+    async modifyBinary(file, data) { files.set(file.path, Uint8Array.from(new Uint8Array(data))); },
+    async read(file) { return new TextDecoder().decode(files.get(file.path)); },
   };
-  const view = new CsvView({ app: { vault } }, { getFileColumnConfig: () => ({}), setFileColumnConfig: async () => {} });
+  const view = new CsvView({ app: { vault } }, {
+    getFileColumnConfig: () => ({}),
+    setFileColumnConfig: async () => {},
+    getFileEncoding: () => encoding,
+    setFileEncoding: async (path, value) => { savedEncodings.push({ path, encoding: value }); },
+  });
   view.file = { path: "a.csv", basename: "a" };
-  view.onOpen(); view.setViewData(initial, true);
+  view.onOpen();
+  await view.onLoadFile(view.file);
   const edit = text => view.rootEl.props.onDataChange(text);
   const fire = () => { const pending = [...timers.values()]; timers.clear(); pending.forEach(fn => fn()); };
+  const onDisk = (path = "a.csv") => files.get(path);
+  const textOnDisk = (path = "a.csv") => new TextDecoder().decode(files.get(path));
+  // The view re-reads the file asynchronously after an external change.
+  const settle = async () => { for (let i = 0; i < 5; i++) await tick(); };
   t.after(() => { timers.clear(); delete globalThis.window; delete globalThis.notices; });
-  return { view, vault, files, edit, fire, timers };
+  return { view, vault, files, edit, fire, timers, settle, savedEncodings, onDisk, textOnDisk, notices: globalThis.notices };
 }
 
 test("committed semicolon CSV edit persists when closed before debounce", async t => {
-  const { view, files, edit } = setup(t, '\uFEFFTitre;Commentaire\r\nLivre;\r\n');
+  const { view, textOnDisk, edit } = await setup(t, { text: 'Titre;Commentaire\r\nLivre;\r\n', bytes: bytesOf([0xef, 0xbb, 0xbf], "Titre;Commentaire\r\nLivre;\r\n") });
   edit('Titre;Commentaire\nLivre;test\n');
   await view.onUnloadFile(view.file);
-  assert.equal(files.get("a.csv"), 'Titre;Commentaire\nLivre;test\n');
+  assert.equal(textOnDisk(), 'Titre;Commentaire\nLivre;test\n');
 });
 
 test("a slow save drains edits whose debounce expires during the write", async t => {
-  const { view, vault, files, edit, fire } = setup(t);
-  const gate = deferred(); const process = vault.process; let first = true;
-  vault.process = async (...args) => { if (first) { first = false; await gate.promise; } return process(...args); };
+  const { view, vault, textOnDisk, edit, fire } = await setup(t);
+  const gate = deferred(); const modifyBinary = vault.modifyBinary; let first = true;
+  vault.modifyBinary = async (...args) => { if (first) { first = false; await gate.promise; } return modifyBinary(...args); };
   edit("first"); fire(); edit("latest"); fire();
   gate.resolve(); await tick();
-  assert.equal(files.get("a.csv"), "latest");
+  assert.equal(textOnDisk(), "latest");
   await view.flushPendingSave();
 });
 
 test("unload waits for the running save and the latest edit", async t => {
-  const { view, vault, files, edit, fire } = setup(t);
-  const gate = deferred(); const process = vault.process;
-  vault.process = async (...args) => { await gate.promise; return process(...args); };
+  const { view, vault, textOnDisk, edit, fire } = await setup(t);
+  const gate = deferred(); const modifyBinary = vault.modifyBinary;
+  vault.modifyBinary = async (...args) => { await gate.promise; return modifyBinary(...args); };
   edit("first"); fire(); edit("latest");
   let unloaded = false;
   const unload = view.onUnloadFile(view.file).then(() => { unloaded = true; });
   await tick(); const early = unloaded;
   gate.resolve(); await unload; await tick();
   assert.equal(early, false, "unload must not finish while disk write is pending");
-  assert.equal(files.get("a.csv"), "latest");
-  assert.equal(files.get("b.csv"), "other file");
+  assert.equal(textOnDisk(), "latest");
+  assert.equal(textOnDisk("b.csv"), "other file");
 });
 
 test("closing the view flushes a pending edit", async t => {
-  const { view, files, edit } = setup(t);
+  const { view, textOnDisk, edit } = await setup(t);
   edit("latest"); await view.onClose();
-  assert.equal(files.get("a.csv"), "latest");
+  assert.equal(textOnDisk(), "latest");
 });
 
 test("host save calls use the same persistence queue", async t => {
-  const { view, files, edit } = setup(t);
+  const { view, textOnDisk, edit } = await setup(t);
   edit("latest"); await view.save();
-  assert.equal(files.get("a.csv"), "latest");
+  assert.equal(textOnDisk(), "latest");
 });
 
 test("failed writes retry, notify, and prevent unload from discarding the edit", async t => {
-  const { view, vault, files, edit } = setup(t);
-  const process = vault.process; let attempts = 0;
-  vault.process = async () => { attempts++; throw new Error("disk unavailable"); };
+  const { view, vault, files, edit } = await setup(t);
+  const modifyBinary = vault.modifyBinary; let attempts = 0;
+  vault.modifyBinary = async () => { attempts++; throw new Error("disk unavailable"); };
   edit("recover me");
   await assert.rejects(view.onUnloadFile(view.file));
   assert.equal(attempts, 3);
   assert.equal(globalThis.notices.length, 1);
   assert.equal(view.getViewData(), "recover me");
-  vault.process = process;
+  vault.modifyBinary = modifyBinary;
   await view.flushPendingSave();
-  assert.equal(files.get("a.csv"), "recover me");
+  assert.equal(new TextDecoder().decode(files.get("a.csv")), "recover me");
 });
 
 test("a failed verification is retried and then visibly rejected", async t => {
-  const { view, vault, edit } = setup(t);
-  vault.process = async () => "not written";
+  const { view, vault, files, edit } = await setup(t);
+  vault.modifyBinary = async file => { files.set(file.path, utf8("not written")); };
   edit("latest");
   await assert.rejects(view.flushPendingSave());
   assert.equal(globalThis.notices.length, 1);
 });
 
 test("reload notifications during a save do not replace a newer edit", async t => {
-  const { view, vault, edit, fire } = setup(t);
-  const gate = deferred(); const process = vault.process;
-  vault.process = async (...args) => { await gate.promise; return process(...args); };
+  const { view, vault, edit, fire } = await setup(t);
+  const gate = deferred(); const modifyBinary = vault.modifyBinary;
+  vault.modifyBinary = async (...args) => { await gate.promise; return modifyBinary(...args); };
   edit("first"); fire(); edit("latest");
   view.setViewData("first", false);
   const visible = view.getViewData();
@@ -118,36 +132,37 @@ test("reload notifications during a save do not replace a newer edit", async t =
 });
 
 test("a transient disk error recovers without a failure notice", async t => {
-  const { view, vault, files, edit } = setup(t);
-  const process = vault.process; let failed = false;
-  vault.process = async (...args) => {
+  const { view, vault, textOnDisk, edit } = await setup(t);
+  const modifyBinary = vault.modifyBinary; let failed = false;
+  vault.modifyBinary = async (...args) => {
     if (!failed) { failed = true; throw new Error("temporarily unavailable"); }
-    return process(...args);
+    return modifyBinary(...args);
   };
   edit("recovered"); await view.flushPendingSave();
-  assert.equal(files.get("a.csv"), "recovered");
+  assert.equal(textOnDisk(), "recovered");
   assert.equal(globalThis.notices.length, 0);
 });
 
 test("an empty edit is saved rather than treated as no pending changes", async t => {
-  const { view, files, edit } = setup(t);
+  const { view, textOnDisk, edit } = await setup(t);
   edit(""); await view.flushPendingSave();
-  assert.equal(files.get("a.csv"), "");
+  assert.equal(textOnDisk(), "");
 });
 
 test("the committed edit reaches a real file through the vault adapter boundary", async t => {
-  const { mkdtemp, readFile, writeFile, rm } = await import("node:fs/promises");
+  const { mkdtemp, readFile, rm, writeFile } = await import("node:fs/promises");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
   const directory = await mkdtemp(join(tmpdir(), "tablite-save-test-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
-  const { view, vault, edit } = setup(t);
-  await writeFile(join(directory, "a.csv"), '\uFEFFTitre;Commentaire\r\nLivre;\r\n');
-  vault.read = file => readFile(join(directory, file.path), "utf8");
-  vault.process = async (file, fn) => {
-    const content = fn(await vault.read(file));
-    await writeFile(join(directory, file.path), content);
-    return content;
+  const { view, vault, edit } = await setup(t);
+  await writeFile(join(directory, "a.csv"), Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from("Titre;Commentaire\r\nLivre;\r\n")]));
+  vault.readBinary = async file => {
+    const buffer = await readFile(join(directory, file.path));
+    return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+  };
+  vault.modifyBinary = async (file, data) => {
+    await writeFile(join(directory, file.path), Buffer.from(new Uint8Array(data)));
   };
   edit('Titre;Commentaire\nLivre;test\n');
   await view.onUnloadFile(view.file);
@@ -155,10 +170,9 @@ test("the committed edit reaches a real file through the vault adapter boundary"
 });
 
 test("switching files after unload leaves each edit in its own file", async t => {
-  const { view, vault, files, edit, fire } = setup(t);
-  vault.readBinary = async file => new TextEncoder().encode(files.get(file.path)).buffer;
-  const gate = deferred(); const process = vault.process;
-  vault.process = async (...args) => { await gate.promise; return process(...args); };
+  const { view, vault, files, edit, fire } = await setup(t);
+  const gate = deferred(); const modifyBinary = vault.modifyBinary;
+  vault.modifyBinary = async (...args) => { await gate.promise; return modifyBinary(...args); };
   edit("edit a"); fire();
   const switched = (async () => {
     await view.onUnloadFile(view.file);
@@ -168,6 +182,271 @@ test("switching files after unload leaves each edit in its own file", async t =>
     await view.flushPendingSave();
   })();
   gate.resolve(); await switched;
-  assert.equal(files.get("a.csv"), "edit a");
-  assert.equal(files.get("b.csv"), "edit b");
+  assert.equal(new TextDecoder().decode(files.get("a.csv")), "edit a");
+  assert.equal(new TextDecoder().decode(files.get("b.csv")), "edit b");
+});
+
+test("a GBK file is read as GBK and written back as GBK", async t => {
+  // "中文测试" in GBK: D6D0 CEC4 B2E2 CAD4
+  const bytes = bytesOf("Titre;Commentaire\nLivre;", [0xd6, 0xd0, 0xce, 0xc4, 0xb2, 0xe2, 0xca, 0xd4], "\n");
+  const { view, onDisk, edit } = await setup(t, { encoding: "gbk", bytes });
+  assert.equal(view.getViewData(), "Titre;Commentaire\nLivre;中文测试\n");
+
+  edit("Titre;Commentaire\nLivre;中文测试\n");
+  await view.flushPendingSave();
+  assert.deepEqual(Array.from(onDisk()), Array.from(bytes), "unchanged Chinese text must keep its GBK bytes");
+
+  edit("Titre;Commentaire\nLivre;中文\n");
+  await view.flushPendingSave();
+  assert.deepEqual(
+    Array.from(onDisk()),
+    Array.from(bytesOf("Titre;Commentaire\nLivre;", [0xd6, 0xd0, 0xce, 0xc4], "\n")),
+    "edited Chinese text must be encoded as GBK",
+  );
+  assert.notEqual(new TextDecoder().decode(onDisk()), "Titre;Commentaire\nLivre;中文\n");
+});
+
+test("a remembered encoding wins over detection", async t => {
+  const bytes = bytesOf("a,b\n", [0xb1, 0xea, 0xcc, 0xe2], "\n");
+  const { view, onDisk, edit } = await setup(t, { encoding: "gbk", bytes });
+  assert.equal(view.getViewData(), "a,b\n标题\n");
+  edit("a,b\n标题,备注\n");
+  await view.flushPendingSave();
+  assert.equal(new TextDecoder("gbk").decode(onDisk()), "a,b\n标题,备注\n");
+  assert.notEqual(new TextDecoder().decode(onDisk()), "a,b\n标题,备注\n");
+});
+
+test("a UTF-8 BOM survives an edit so Excel keeps reading the file", async t => {
+  const { view, onDisk, edit } = await setup(t, {
+    encoding: "utf-8-bom",
+    bytes: bytesOf([0xef, 0xbb, 0xbf], "a,b\n1,2\n"),
+  });
+  assert.equal(view.getViewData(), "a,b\n1,2\n", "the BOM must not show up as data");
+  edit("a,b\n1,3\n");
+  await view.flushPendingSave();
+  assert.deepEqual(Array.from(onDisk()), Array.from(bytesOf([0xef, 0xbb, 0xbf], "a,b\n1,3\n")));
+});
+
+test("choosing an encoding converts the file without touching what is displayed", async t => {
+  const { view, savedEncodings, onDisk, textOnDisk } = await setup(t, {
+    text: "a,b\n中文\n",
+    bytes: utf8("a,b\n中文\n"),
+    encoding: "utf-8",
+  });
+
+  await view.rootEl.props.onEncodingChange("gbk");
+
+  assert.equal(view.getViewData(), "a,b\n中文\n", "the shown text must survive a conversion");
+  assert.deepEqual(savedEncodings, [{ path: "a.csv", encoding: "gbk" }]);
+  assert.deepEqual(
+    Array.from(onDisk()),
+    Array.from(bytesOf("a,b\n", [0xd6, 0xd0, 0xce, 0xc4], "\n")),
+    "the file must be rewritten as GBK straight away",
+  );
+  assert.equal(new TextDecoder("gbk").decode(onDisk()), "a,b\n中文\n");
+  assert.notEqual(textOnDisk(), "a,b\n中文\n", "UTF-8 decoding must no longer be what is on disk");
+});
+
+test("choosing UTF-8 with BOM writes the BOM even without an edit", async t => {
+  const { view, onDisk } = await setup(t, {
+    text: "a,b\n中文\n",
+    bytes: utf8("a,b\n中文\n"),
+    encoding: "utf-8",
+  });
+
+  await view.rootEl.props.onEncodingChange("utf-8-bom");
+
+  assert.deepEqual(Array.from(onDisk().slice(0, 3)), [0xef, 0xbb, 0xbf]);
+  assert.equal(view.getViewData(), "a,b\n中文\n", "the BOM must not appear in the editor");
+  assert.equal(new TextDecoder("utf-8").decode(onDisk()), "a,b\n中文\n");
+});
+
+test("a conversion is refused when the shown text could not be decoded", async t => {
+  // GBK bytes opened as UTF-8, so the shown text is full of replacement chars.
+  const { view, savedEncodings, textOnDisk, notices } = await setup(t, {
+    encoding: "utf-8",
+    bytes: bytesOf("a,b\n", [0xd6, 0xd0, 0xce, 0xc4], "\n"),
+  });
+  const before = textOnDisk();
+
+  await view.rootEl.props.onEncodingChange("gbk");
+
+  assert.deepEqual(savedEncodings, [{ path: "a.csv", encoding: "gbk" }], "the choice is still remembered");
+  assert.equal(textOnDisk(), before, "a lossy decode must not be written back");
+  assert.equal(notices.length, 1);
+  assert.match(notices[0], /undecodable/);
+});
+
+test("re-reading reinterprets the bytes on disk with the selected encoding", async t => {
+  const bytes = bytesOf("a,b\n", [0xd6, 0xd0, 0xce, 0xc4], "\n");
+  const { view, textOnDisk } = await setup(t, { encoding: "utf-8", bytes });
+  assert.notEqual(view.getViewData(), "a,b\n中文\n", "UTF-8 decoding of GBK bytes is expected to be wrong");
+  const before = textOnDisk();
+
+  await view.rootEl.props.onEncodingChange("gbk"); // remembers GBK without converting
+  await view.rootEl.props.onReloadEncoding();
+
+  assert.equal(view.getViewData(), "a,b\n中文\n");
+  assert.equal(textOnDisk(), before, "re-reading must not rewrite the file");
+});
+
+test("a file change reported as UTF-8 does not garble a GBK file", async t => {
+  const bytes = bytesOf("a,b\n", [0xd6, 0xd0, 0xce, 0xc4], "\n");
+  const { view, settle } = await setup(t, { encoding: "gbk", bytes });
+
+  // Obsidian reports external changes as a UTF-8 string, which is mojibake here.
+  view.setViewData("a,b\n\uFFFD\uFFFD\n", false);
+  await settle();
+
+  assert.equal(view.getViewData(), "a,b\n中文\n");
+});
+
+test("PR7 regression: external read must not replace an edit made while read is pending", async t => {
+  const { view, vault, edit } = await setup(t);
+  const gate = deferred();
+  const previous = await vault.readBinary(view.file);
+  vault.readBinary = async () => { await gate.promise; return previous; };
+  view.setViewData("external", false);
+  edit("newer unsaved edit");
+  gate.resolve(); await tick();
+  assert.equal(view.getViewData(), "newer unsaved edit");
+});
+
+test("PR7 regression: slow save must not consume a same-text encoding conversion", async t => {
+  const { view, vault, edit, fire, onDisk } = await setup(t);
+  const gate = deferred();
+  const original = vault.modifyBinary;
+  let first = true;
+  vault.modifyBinary = async (...args) => { if (first) { first = false; await gate.promise; } return original(...args); };
+  edit("中文"); fire();
+  const converting = view.rootEl.props.onEncodingChange("utf-8-bom");
+  await tick(); gate.resolve(); await converting;
+  assert.deepEqual([...onDisk().slice(0, 3)], [0xef, 0xbb, 0xbf]);
+});
+
+test("an old external read cannot replace an edit that has already saved", async t => {
+  const { view, vault, edit, textOnDisk } = await setup(t);
+  const gate = deferred();
+  const read = vault.readBinary;
+  const previous = await read(view.file);
+  let first = true;
+  vault.readBinary = async file => {
+    if (first) { first = false; await gate.promise; return previous; }
+    return read(file);
+  };
+  view.setViewData("external", false);
+  edit("saved while reading");
+  await view.flushPendingSave();
+  gate.resolve(); await tick();
+  assert.equal(view.getViewData(), "saved while reading");
+  assert.equal(textOnDisk(), "saved while reading");
+});
+
+test("a delayed read cannot replace another file's contents", async t => {
+  const { view, vault } = await setup(t);
+  const gate = deferred();
+  const read = vault.readBinary;
+  const previous = await read(view.file);
+  let first = true;
+  vault.readBinary = async file => {
+    if (first) { first = false; await gate.promise; return previous; }
+    return read(file);
+  };
+  view.setViewData("external", false);
+  await view.onUnloadFile(view.file);
+  view.file = { path: "b.csv", basename: "b" };
+  await view.onLoadFile(view.file);
+  gate.resolve(); await tick();
+  assert.equal(view.getViewData(), "other file");
+});
+
+test("the latest external notification wins when reads finish out of order", async t => {
+  const { view, vault } = await setup(t);
+  const older = deferred(); const newer = deferred(); let calls = 0;
+  vault.readBinary = async () => {
+    if (++calls === 1) { await older.promise; return utf8("older").buffer; }
+    await newer.promise; return utf8("newer").buffer;
+  };
+  view.setViewData("older", false);
+  view.setViewData("newer", false);
+  newer.resolve(); await tick(); older.resolve(); await tick();
+  assert.equal(view.getViewData(), "newer");
+});
+
+test("a failed conversion does not remember an encoding that was never written", async t => {
+  const { view, vault, onDisk, savedEncodings, notices } = await setup(t, { text: "中文" });
+  const before = onDisk().slice(); const write = vault.modifyBinary;
+  vault.modifyBinary = async () => { throw new Error("disk unavailable"); };
+  await view.rootEl.props.onEncodingChange("utf-8-bom");
+  assert.deepEqual(onDisk(), before);
+  assert.deepEqual(savedEncodings, []);
+  assert.equal(notices.filter(message => /saved as/.test(message)).length, 0);
+  vault.modifyBinary = write;
+  await view.flushPendingSave();
+  assert.deepEqual([...onDisk().slice(0, 3)], [0xef, 0xbb, 0xbf]);
+  assert.deepEqual(savedEncodings, [{ path: "a.csv", encoding: "utf-8-bom" }]);
+});
+
+test("successive encoding changes keep the final bytes and remembered encoding together", async t => {
+  const { view, vault, edit, fire, onDisk, savedEncodings, notices } = await setup(t);
+  const gate = deferred(); const write = vault.modifyBinary; let first = true;
+  vault.modifyBinary = async (...args) => {
+    if (first) { first = false; await gate.promise; }
+    return write(...args);
+  };
+  edit("中文"); fire();
+  const bom = view.rootEl.props.onEncodingChange("utf-8-bom");
+  const gbk = view.rootEl.props.onEncodingChange("gbk");
+  edit("中文测试");
+  gate.resolve(); await Promise.all([bom, gbk]);
+  assert.equal(new TextDecoder("gbk").decode(onDisk()), "中文测试");
+  assert.deepEqual(savedEncodings.at(-1), { path: "a.csv", encoding: "gbk" });
+  assert.equal(notices.filter(message => /saved as UTF-8 with BOM/.test(message)).length, 0);
+});
+
+test("manual re-read does not discard edits made after it was requested", async t => {
+  const { view, vault, edit } = await setup(t);
+  const gate = deferred(); const previous = await vault.readBinary(view.file);
+  vault.readBinary = async () => { await gate.promise; return previous; };
+  const reload = view.rootEl.props.onReloadEncoding();
+  await tick(); edit("new edit after re-read");
+  gate.resolve(); await reload;
+  assert.equal(view.getViewData(), "new edit after re-read");
+});
+
+test("manual re-read waits for an in-flight write", async t => {
+  const { view, vault, edit, fire, textOnDisk } = await setup(t);
+  const gate = deferred(); const write = vault.modifyBinary;
+  vault.modifyBinary = async (...args) => { await gate.promise; return write(...args); };
+  edit("written before re-read"); fire();
+  const reload = view.rootEl.props.onReloadEncoding();
+  gate.resolve(); await reload;
+  assert.equal(view.getViewData(), "written before re-read");
+  assert.equal(textOnDisk(), "written before re-read");
+});
+
+test("a newer external update wins over an older manual re-read", async t => {
+  const { view, vault } = await setup(t);
+  const older = deferred(); const newer = deferred(); let calls = 0;
+  vault.readBinary = async () => {
+    if (++calls === 1) { await older.promise; return utf8("older").buffer; }
+    await newer.promise; return utf8("newer").buffer;
+  };
+  const reload = view.rootEl.props.onReloadEncoding(); await tick();
+  view.setViewData("newer", false);
+  newer.resolve(); await tick(); older.resolve(); await reload;
+  assert.equal(view.getViewData(), "newer");
+});
+
+test("a newer manual re-read wins over an older external update", async t => {
+  const { view, vault } = await setup(t);
+  const older = deferred(); const newer = deferred(); let calls = 0;
+  vault.readBinary = async () => {
+    if (++calls === 1) { await older.promise; return utf8("older").buffer; }
+    await newer.promise; return utf8("newer").buffer;
+  };
+  view.setViewData("older", false);
+  const reload = view.rootEl.props.onReloadEncoding(); await tick();
+  older.resolve(); await tick(); newer.resolve(); await reload;
+  assert.equal(view.getViewData(), "newer");
 });

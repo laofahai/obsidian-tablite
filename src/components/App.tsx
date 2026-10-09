@@ -20,6 +20,10 @@ interface AppProps {
   filePath: string;
   initialColumnConfig: ColumnConfig;
   onColumnConfigChange: (config: ColumnConfig, columnCount: number) => void | Promise<void>;
+  /** Switch the encoding the file is stored in; the shown text is kept as-is. */
+  onEncodingChange: (encoding: string) => void | Promise<void>;
+  /** Re-read the file bytes with the selected encoding. */
+  onReloadEncoding: () => void | Promise<void>;
   onDataChange: (data: string) => void;
 }
 
@@ -101,11 +105,11 @@ function ensureEditableState(state: TableState): TableState {
     state.data.length > 0
       ? state.data.map((row) => {
           if (row.length < headers.length) {
-            return [...row, ...new Array(headers.length - row.length).fill("")];
+            return [...row, ...new Array<string>(headers.length - row.length).fill("")];
           }
           return row.slice(0, headers.length);
         })
-      : [new Array(headers.length).fill("")];
+      : [new Array<string>(headers.length).fill("")];
 
   return { headers, data };
 }
@@ -118,6 +122,8 @@ export function App({
   filePath,
   initialColumnConfig,
   onColumnConfigChange,
+  onEncodingChange,
+  onReloadEncoding,
   onDataChange,
 }: AppProps) {
   // Use pre-parsed result from csv-view — no redundant re-parsing
@@ -228,6 +234,17 @@ export function App({
       setColumnConfig((prev) => normalizeColumnConfig(prev, nextHeaders.length));
     },
     [delimiter, initialData, reset],
+  );
+
+  // Changing the encoding converts the file: the text on screen is what gets
+  // written, in the new charset. The table is left untouched, so choosing an
+  // encoding can never garble what you are looking at.
+  const handleEncodingChange = useCallback(
+    (nextEncoding: string) => {
+      setEncoding(nextEncoding);
+      void onEncodingChange(nextEncoding);
+    },
+    [onEncodingChange],
   );
 
   const handleInsertColumn = useCallback(
@@ -450,7 +467,8 @@ export function App({
         loading={loading}
         loadProgress={progress}
         onDelimiterChange={handleDelimiterChange}
-        onEncodingChange={setEncoding}
+        onEncodingChange={handleEncodingChange}
+        onReloadEncoding={() => { void onReloadEncoding(); }}
         onHasHeaderChange={handleHasHeaderChange}
         onCrossHighlightChange={setCrossHighlight}
         onSearch={setSearchQuery}
